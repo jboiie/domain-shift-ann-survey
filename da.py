@@ -118,3 +118,53 @@ def adabn(model, x_target):
     for xb, _ in batches(x_target, torch.zeros(len(x_target)), 128, False):
         m(xb)
     return m.eval()
+
+
+class GRL(torch.autograd.Function):
+    # Identity in the forward pass; multiplies the gradient by -lambda in the backward pass
+    @staticmethod
+    def forward(ctx, x, lam):
+        ctx.lam = lam
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, g):
+        return -ctx.lam * g, None
+
+
+def train_dann(xs, ys, xt, epochs, seed, log, tag="dann"):
+    set_seed(seed)
+    m = Net()
+    dom = nn.Sequential(nn.Linear(128, 64), nn.ReLU(), nn.Linear(64, 1))
+    opt = torch.optim.Adam(list(m.parameters()) + list(dom.parameters()), 1e-3)
+    steps = epochs * ((len(xs) + 127) // 128)
+    k = 0
+    for ep in range(epochs):
+        m.train()
+        tl = td = 0
+        # source batches carry labels; target batches are unlabeled and only feed the domain loss
+        for (xb, yb), (tb, _) in zip(batches(xs, ys), batches(xt, torch.zeros(len(xt)))):
+            p = k / steps
+            lam = 2 / (1 + np.exp(-10 * p)) - 1  # schedule from Ganin et al.
+            k += 1
+            n = min(len(xb), len(tb))
+            xb, yb, tb = xb[:n], yb[:n], tb[:n]
+            f = m.feat(torch.cat([xb, tb]))
+            lc = F.cross_entropy(m.clf(f[:n]), yb)
+            d = dom(GRL.apply(f, lam)).squeeze(1)
+            dl = torch.cat([torch.zeros(n), torch.ones(n)])
+            ld = F.binary_cross_entropy_with_logits(d, dl)
+            opt.zero_grad()
+            (lc + ld).backward()
+            opt.step()
+            tl += lc.item()
+            td += ld.item()
+        nb = steps // epochs
+        log(f"[{tag}] seed {seed} epoch {ep + 1}/{epochs} label_loss {tl / nb:.4f} domain_loss {td / nb:.4f} lambda {lam:.3f}")
+    return m
+
+
+@torch.no_grad()
+def features(model, x):
+    model.eval()
+    return torch.cat([model.feat(xb) for xb, _ in batches(x, torch.zeros(len(x)), 512, False)]).numpy()
