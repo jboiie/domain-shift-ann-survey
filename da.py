@@ -60,3 +60,46 @@ def sample_grid(data, path, n=10):
     plt.tight_layout()
     plt.savefig(path, dpi=150, bbox_inches="tight")
     plt.show()
+
+
+class Net(nn.Module):
+    # Shared backbone for every method: 3 conv blocks (BN is what AdaBN adapts) -> 128-d feature -> linear classifier
+    def __init__(self):
+        super().__init__()
+        def block(i, o):
+            return nn.Sequential(nn.Conv2d(i, o, 3, padding=1), nn.BatchNorm2d(o), nn.ReLU(), nn.MaxPool2d(2))
+        self.feat = nn.Sequential(block(3, 32), block(32, 64), block(64, 128), nn.Flatten(), nn.Linear(128 * 16, 128), nn.ReLU())
+        self.clf = nn.Linear(128, 10)
+
+    def forward(self, x):
+        return self.clf(self.feat(x))
+
+
+def batches(x, y, bs=128, shuffle=True):
+    idx = torch.randperm(len(x)) if shuffle else torch.arange(len(x))
+    for i in range(0, len(x), bs):
+        j = idx[i:i + bs]
+        yield x[j], y[j]
+
+
+@torch.no_grad()
+def accuracy(model, x, y):
+    model.eval()
+    return 100 * sum((model(xb).argmax(1) == yb).sum().item() for xb, yb in batches(x, y, 512, False)) / len(x)
+
+
+def train_supervised(x, y, epochs, seed, log, tag):
+    set_seed(seed)
+    m = Net()
+    opt = torch.optim.Adam(m.parameters(), 1e-3)
+    for ep in range(epochs):
+        m.train()
+        tot = 0
+        for xb, yb in batches(x, y):
+            loss = F.cross_entropy(m(xb), yb)
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+            tot += loss.item() * len(xb)
+        log(f"[{tag}] seed {seed} epoch {ep + 1}/{epochs} loss {tot / len(x):.4f}")
+    return m
