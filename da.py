@@ -103,3 +103,18 @@ def train_supervised(x, y, epochs, seed, log, tag):
             tot += loss.item() * len(xb)
         log(f"[{tag}] seed {seed} epoch {ep + 1}/{epochs} loss {tot / len(x):.4f}")
     return m
+
+
+@torch.no_grad()
+def adabn(model, x_target):
+    # Replace BN running statistics with target-domain statistics; no weights change, no labels used
+    import copy
+    m = copy.deepcopy(model)
+    for mod in m.modules():
+        if isinstance(mod, nn.BatchNorm2d):
+            mod.reset_running_stats()
+            mod.momentum = None  # cumulative average over all target batches
+    m.train()
+    for xb, _ in batches(x_target, torch.zeros(len(x_target)), 128, False):
+        m(xb)
+    return m.eval()
