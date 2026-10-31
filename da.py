@@ -101,14 +101,29 @@ def accuracy(model, x, y):
     return 100 * sum((model(xb).argmax(1) == yb).sum().item() for xb, yb in batches(x, y, 512, False)) / len(x)
 
 
+def make_opt(params):
+    # Training recipe of Ganin et al.: SGD with momentum 0.9; the learning rate is annealed per step by set_lr
+    return torch.optim.SGD(params, lr=0.01, momentum=0.9)
+
+
+def set_lr(opt, p):
+    # p goes from 0 to 1 over training: lr = 0.01 / (1 + 10p)^0.75
+    for g in opt.param_groups:
+        g["lr"] = 0.01 / (1 + 10 * p) ** 0.75
+
+
 def train_supervised(x, y, epochs, seed, log, tag):
     set_seed(seed)
     m = Net()
-    opt = torch.optim.Adam(m.parameters(), 1e-3)
+    opt = make_opt(m.parameters())
+    steps = epochs * ((len(x) + 127) // 128)
+    k = 0
     for ep in range(epochs):
         m.train()
         tot = 0
         for xb, yb in batches(x, y):
+            set_lr(opt, k / steps)
+            k += 1
             loss = F.cross_entropy(m(xb), yb)
             opt.zero_grad()
             loss.backward()
@@ -149,7 +164,7 @@ def train_dann(xs, ys, xt, epochs, seed, log, tag="dann"):
     set_seed(seed)
     m = Net()
     dom = nn.Sequential(nn.Linear(128, 64), nn.ReLU(), nn.Linear(64, 1))
-    opt = torch.optim.Adam(list(m.parameters()) + list(dom.parameters()), 1e-3)
+    opt = make_opt(list(m.parameters()) + list(dom.parameters()))
     steps = epochs * ((len(xs) + 127) // 128)
     k = 0
     for ep in range(epochs):
@@ -158,6 +173,7 @@ def train_dann(xs, ys, xt, epochs, seed, log, tag="dann"):
         # source batches carry labels; target batches are unlabeled and only feed the domain loss
         for (xb, yb), (tb, _) in zip(batches(xs, ys), batches(xt, torch.zeros(len(xt)))):
             p = k / steps
+            set_lr(opt, p)
             lam = 2 / (1 + np.exp(-10 * p)) - 1  # schedule from Ganin et al.
             k += 1
             n = min(len(xb), len(tb))
@@ -183,7 +199,7 @@ def features(model, x):
     return torch.cat([model.feat(xb) for xb, _ in batches(x, torch.zeros(len(x)), 512, False)]).numpy()
 
 
-def run_all(data, seeds=(0, 1, 2), epochs=20, log=print):
+def run_all(data, seeds=(0, 1, 2), epochs=30, log=print):
     # Every method shares the Net backbone and the same epoch budget
     import time
     xs, ys = data["mnist_train"]
@@ -214,7 +230,7 @@ def run_all(data, seeds=(0, 1, 2), epochs=20, log=print):
                    "mnistm_mean": float(np.mean(per[n]["mnistm"])), "mnistm_std": float(np.std(per[n]["mnistm"])),
                    "gap_mean": float(np.mean(gap[n])), "gap_std": float(np.std(gap[n])),
                    "train_seconds_per_run": secs[n] / len(seeds)}
-    res = {"config": {"epochs": epochs, "seeds": list(seeds), "n_train_per_domain": len(xs), "batch_size": 128, "optimizer": "Adam lr 1e-3",
+    res = {"config": {"epochs": epochs, "seeds": list(seeds), "n_train_per_domain": len(xs), "batch_size": 128, "optimizer": "SGD momentum 0.9, lr 0.01 / (1 + 10p)^0.75",
                       "n_test_mnist": len(tests["mnist"][0]), "n_test_mnistm": len(tests["mnistm"][0])},
            "per_seed": per, "gap_closed_per_seed": gap, "summary": summ}
     return res, keep
