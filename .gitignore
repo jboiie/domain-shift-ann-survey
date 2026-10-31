@@ -1,5 +1,35 @@
-ref/
-data/
+# Python
 __pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Jupyter
 .ipynb_checkpoints/
+
+# Data and download caches (MNIST and MNIST-M are fetched at runtime)
+data/
+.cache/
+*.parquet
+
+# Model weights
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# Documents that must not be committed (third-party sample report, PDF exports)
+Project Report 1.pdf
 *.pdf
+
+# Scratch output of local layout checks
+ref/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+~$*.docx
