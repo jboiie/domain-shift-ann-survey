@@ -59,13 +59,13 @@ def ch3(doc):
               "maps the flattened 2048 values to a 128-dimensional feature vector, and a linear classifier maps the feature to "
               "ten digit classes. Batch normalization layers are included on purpose, because AdaBN works by changing their "
               "statistics. The network is small so that every run finishes in minutes on a CPU.")
-    fig(doc, "figures/architecture.png", "Shared CNN backbone and the additional DANN components",
+    fig(doc, ROOT / "figures/architecture.png", "Shared CNN backbone and the additional DANN components",
         "Shows the shared feature extractor and label classifier, and the gradient reversal layer and domain classifier "
         "that are added for DANN only.", 6.3, expect=2)
     para(doc, "The two domains are shown in Figure 3. MNIST digits are white strokes on a black background. In MNIST-M the same "
               "digit shapes are blended with random patches from natural photographs, so the strokes take on the colours and "
               "textures of the background.")
-    fig(doc, "figures/samples.png", "Sample images from MNIST (source) and MNIST-M (target)",
+    fig(doc, ROOT / "figures/samples.png", "Sample images from MNIST (source) and MNIST-M (target)",
         "Shows ten training images from each domain with their labels. The digit shapes are the same; MNIST-M adds coloured "
         "natural-image backgrounds.", 6.3, expect=3)
 
@@ -156,7 +156,7 @@ def ch3(doc):
               "clusters, one per digit, while MNIST-M features form one large, diffuse region that touches only a few of those "
               "clusters. For DANN, the ten MNIST clusters remain and the MNIST-M points form elongated bands that stay apart "
               "from them. The two domains are not merged in this run.")
-    fig(doc, "figures/tsne.png", "t-SNE of 128-dimensional features: source-only model (left) and DANN (right)",
+    fig(doc, ROOT / "figures/tsne.png", "t-SNE of 128-dimensional features: source-only model (left) and DANN (right)",
         "Shows 1,000 MNIST (blue) and 1,000 MNIST-M (red) test images embedded in 2-D for the seed-0 source-only and DANN models.",
         6.3, expect=4)
     h3(doc, "3.2.5 Sprint Retrospective")
