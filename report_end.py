@@ -237,8 +237,7 @@ def _src(name, tree, lines):
 
 def wrap_code(txt, width=90):
     out = []
-    for ln in txt.split("
-"):
+    for ln in txt.split("\n"):
         ind = len(ln) - len(ln.lstrip())
         if len(ln) > width and not ln.lstrip().startswith("#") and "  # " in ln:
             code_part, comment = ln.split("  # ", 1)
@@ -250,8 +249,7 @@ def wrap_code(txt, width=90):
             out += textwrap.wrap(ln, width, subsequent_indent=" " * ind + "# ", break_long_words=False)
         else:
             out += textwrap.wrap(ln, width, subsequent_indent=" " * (ind + 4), break_long_words=False, replace_whitespace=False)
-    return "
-".join(out)
+    return "\n".join(out)
 
 
 def ch10(doc):
