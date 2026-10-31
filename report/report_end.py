@@ -32,7 +32,7 @@ def ch7(doc):
         "Gives MNIST accuracy, MNIST-M accuracy and the share of the gap closed for source-only, AdaBN, DANN and target-only.",
         ["Method", "MNIST accuracy (%)", "MNIST-M accuracy (%)", "Gap closed (%)"],
         rows_results_all(), [1.5, 1.6, 1.7, 1.4], size=10, expect=5)
-    fig(doc, "figures/results_bar.png", "Accuracy of each method on MNIST and MNIST-M (error bars: standard deviation over 3 seeds)",
+    fig(doc, ROOT / "figures/results_bar.png", "Accuracy of each method on MNIST and MNIST-M (error bars: standard deviation over 3 seeds)",
         "Bar chart of the results summary table, with MNIST and MNIST-M accuracy for each method.", 5.6, expect=5)
     tab(doc, "MNIST-M accuracy (%) for each seed",
         "Lists the MNIST-M test accuracy of every method for each random seed, to show the run-to-run variation.",
@@ -295,7 +295,7 @@ def wrap_code(txt, width=82):
 
 def ch10(doc):
     chapter(doc, "CHAPTER 10", "APPENDIX")
-    src = open("da.py", encoding="utf8").read()
+    src = open(ROOT / "src" / "da.py", encoding="utf8").read()
     tree, lines = ast.parse(src), src.split("\n")
     para(doc, "The listings below are copied from da.py, the helper module used by the notebook domain_shift.ipynb. "
               "Long lines are wrapped for printing.")
@@ -309,12 +309,12 @@ def ch10(doc):
 
 
 SHOTS = [
-    ("figures/log_supervised.png", "Training log of the source-only and target-only models (seed 0)", 6.0),
-    ("figures/log_dann.png", "Training log of DANN (seed 0): label loss, domain loss and lambda per epoch", 6.0),
-    ("figures/log_eval.png", "Test accuracy of every method for each seed, as printed by the notebook", 6.0),
-    ("figures/samples.png", "Sample images from MNIST and MNIST-M (Figure 3)", 6.0),
-    ("figures/results_bar.png", "Results bar chart (Figure 5)", 5.4),
-    ("figures/tsne.png", "t-SNE of source-only and DANN features (Figure 4)", 6.2),
+    (ROOT / "figures/log_supervised.png", "Training log of the source-only and target-only models (seed 0)", 6.0),
+    (ROOT / "figures/log_dann.png", "Training log of DANN (seed 0): label loss, domain loss and lambda per epoch", 6.0),
+    (ROOT / "figures/log_eval.png", "Test accuracy of every method for each seed, as printed by the notebook", 6.0),
+    (ROOT / "figures/samples.png", "Sample images from MNIST and MNIST-M (Figure 3)", 6.0),
+    (ROOT / "figures/results_bar.png", "Results bar chart (Figure 5)", 5.4),
+    (ROOT / "figures/tsne.png", "t-SNE of source-only and DANN features (Figure 4)", 6.2),
 ]
 
 
