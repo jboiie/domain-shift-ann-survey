@@ -11,7 +11,7 @@ def ch7(doc):
               f"{len(CFG['seeds'])} random seeds. Accuracy is measured on the full MNIST test set ({CFG['n_test_mnist']:,} images) and the "
               f"full MNIST-M test set ({CFG['n_test_mnistm']:,} images). The share of the gap closed is "
               "(method - source-only) / (target-only - source-only), computed on MNIST-M accuracy for each seed and then averaged.")
-    tab(doc, "Results summary (mean Â± standard deviation over 3 seeds)",
+    tab(doc, "Results summary (mean ± standard deviation over 3 seeds)",
         "Gives MNIST accuracy, MNIST-M accuracy and the share of the gap closed for source-only, AdaBN, DANN and target-only.",
         ["Method", "MNIST accuracy (%)", "MNIST-M accuracy (%)", "Gap closed (%)"],
         rows_results_all(), [1.5, 1.6, 1.7, 1.4], size=10, expect=5)
@@ -48,7 +48,7 @@ def ch7(doc):
               "that works on both.")
 
     h2(doc, "7.4 DANN")
-    para(doc, f"DANN reached {pm('dann', 'mnistm')}% on MNIST-M and closed {S['dann']['gap_mean']:.1f} Â± {S['dann']['gap_std']:.1f}% "
+    para(doc, f"DANN reached {pm('dann', 'mnistm')}% on MNIST-M and closed {S['dann']['gap_mean']:.1f} ± {S['dann']['gap_std']:.1f}% "
               f"of the gap, less than AdaBN. It kept MNIST accuracy high ({pm('dann', 'mnist')}%). Run-to-run variation was large: "
               f"MNIST-M accuracy was {', '.join(f'{v:.1f}%' for v in R['per_seed']['dann']['mnistm'])} for the three seeds. "
               "This agrees with the literature on the instability of adversarial training (Section 2.3).")
@@ -97,7 +97,7 @@ def ch7(doc):
 
 def rows_results_all():
     names = {"source_only": "Source-only", "adabn": "AdaBN", "dann": "DANN", "target_only": "Target-only"}
-    return [[names[k], pm(k, "mnist"), pm(k, "mnistm"), f"{S[k]['gap_mean']:.1f} Â± {S[k]['gap_std']:.1f}"] for k in names]
+    return [[names[k], pm(k, "mnist"), pm(k, "mnistm"), f"{S[k]['gap_mean']:.1f} ± {S[k]['gap_std']:.1f}"] for k in names]
 
 
 def ch8(doc):
@@ -218,7 +218,7 @@ def ch9(doc):
         h2(doc, f"{i}. {head}")
         para(doc, sub, italic=True, keep_next=True)
         for ref, key in items:
-            p = para(doc, "â€¢\t" + ref, after=0)
+            p = para(doc, "•\t" + ref, after=0)
             p.paragraph_format.left_indent = Inches(0.4)
             p.paragraph_format.first_line_indent = Inches(-0.25)
             p.paragraph_format.keep_with_next = True
@@ -235,7 +235,7 @@ def _src(name, tree, lines):
     raise KeyError(name)
 
 
-def wrap_code(txt, width=90):
+def wrap_code(txt, width=82):
     out = []
     for ln in txt.split("\n"):
         ind = len(ln) - len(ln.lstrip())

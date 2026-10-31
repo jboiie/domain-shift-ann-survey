@@ -386,7 +386,7 @@ def ch2(doc):
         "Compares the surveyed methods on target-label need, target-data need during training, compute cost, implementation "
         "complexity and typical failure modes.",
         ["Method", "Needs target labels?", "Needs target data at training?", "Compute cost", "Implementation complexity", "Typical failure modes"],
-        rows, [0.95, 0.65, 0.85, 0.95, 0.95, 1.55], size=8.5, expect=1, bold_first_col=True)
+        rows, [0.9, 0.6, 0.8, 0.9, 1.1, 1.6], size=8.5, expect=1, bold_first_col=True)
 
     h2(doc, "2.3 Research Gaps Identified")
     numbered(doc, ["**Toy benchmarks.** Many methods are evaluated on digits and office-object benchmarks. Gains on these do not "
