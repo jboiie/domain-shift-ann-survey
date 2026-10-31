@@ -1,9 +1,11 @@
 import json
+from pathlib import Path
 from docx.enum.text import WD_BREAK
 from docx.shared import Inches, Pt
 from docx_helpers import *
 
-R = json.load(open("results.json"))
+ROOT = Path(__file__).resolve().parents[1]  # repository root
+R = json.load(open(ROOT / "results" / "results.json"))
 S = R["summary"]
 CFG = R["config"]
 
@@ -31,7 +33,7 @@ def fig(doc, path, title, desc, width=6.0, expect=None):
     n = len(FIGS) + 1
     assert expect is None or n == expect, (title, n, expect)
     FIGS.append((n, title, desc))
-    figure(doc, path, f"Figure {n}: {title}", width)
+    figure(doc, str(path), f"Figure {n}: {title}", width)
 
 
 def tab(doc, title, desc, header, rows, widths, size=10, expect=None, **kw):
@@ -75,7 +77,7 @@ def front_matter(doc):
     center(doc, "with specialization in (ARTIFICIAL INTELLIGENCE & MACHINE LEARNING)", 12, after=14)
     p = doc.add_paragraph()
     p.alignment = C
-    p.add_run().add_picture("assets/srm_logo.jpeg", width=Inches(3.0))
+    p.add_run().add_picture(str(ROOT / "report" / "assets" / "srm_logo.jpeg"), width=Inches(3.0))
     p.paragraph_format.space_after = Pt(18)
     for t in ("DEPARTMENT OF COMPUTATIONAL INTELLIGENCE", "COLLEGE OF ENGINEERING AND TECHNOLOGY",
               "SRM INSTITUTE OF SCIENCE AND TECHNOLOGY", "KATTANKULATHUR - 603 203", "NOVEMBER 2026"):
@@ -84,7 +86,7 @@ def front_matter(doc):
     # Bonafide certificate
     p = doc.add_paragraph()
     p.paragraph_format.page_break_before = True
-    p.add_run().add_picture("assets/srm_logo.jpeg", width=Inches(1.8))
+    p.add_run().add_picture(str(ROOT / "report" / "assets" / "srm_logo.jpeg"), width=Inches(1.8))
     center(doc, "SRM INSTITUTE OF SCIENCE AND TECHNOLOGY", 14, after=2).paragraph_format.space_before = Pt(12)
     center(doc, "KATTANKULATHUR - 603 203", 14, after=14)
     center(doc, "BONAFIDE CERTIFICATE", 13, True, after=14)
@@ -316,7 +318,7 @@ def ch2(doc):
     h2(doc, "2.2 Existing Models and Frameworks")
     para(doc, "Domain adaptation methods can be grouped by how they reduce the difference between domains. Figure 1 shows the "
               "taxonomy used in this report.")
-    fig(doc, "figures/taxonomy.png", "Taxonomy of domain shift handling methods",
+    fig(doc, str(ROOT / "figures/taxonomy.png"), "Taxonomy of domain shift handling methods",
         "Groups the surveyed methods into supervised adaptation, discrepancy-based, adversarial, normalization and pixel-level, "
         "and methods that go beyond adaptation.", 6.3, expect=1)
 
