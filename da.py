@@ -48,6 +48,19 @@ def load_data(n_train=N_TRAIN, seed=0):
     return out
 
 
+def audit(data):
+    # Checks that both domains reach the model in the same format: CHW float32, same range, same normalization
+    for k, (x, y) in data.items():
+        assert x.dtype == torch.float32 and x.shape[1:] == (3, 32, 32) and y.dtype == torch.int64
+        assert x.min() >= -1 and x.max() <= 1
+        print(f"{k:13s} {tuple(x.shape)} {x.dtype} range [{x.min():.2f}, {x.max():.2f}] "
+              f"channel mean {[round(v, 3) for v in x.mean((0, 2, 3)).tolist()]} std {[round(v, 3) for v in x.std((0, 2, 3)).tolist()]}")
+    x = data["mnist_train"][0]
+    assert (x[:, 0] == x[:, 1]).all() and (x[:, 1] == x[:, 2]).all()  # MNIST channels are copies of the grayscale channel
+    print("raw 3x3 patch, MNIST ch0:", data["mnist_train"][0][0, 0, 14:17, 14:17].tolist())
+    print("raw 3x3 patch, MNIST-M ch0:", data["mnistm_train"][0][0, 0, 14:17, 14:17].tolist())
+
+
 def sample_grid(data, path, n=10):
     fig, ax = plt.subplots(2, n, figsize=(n * 1.1, 2.6))
     for r, (name, title) in enumerate((("mnist_train", "MNIST (source)"), ("mnistm_train", "MNIST-M (target)"))):
