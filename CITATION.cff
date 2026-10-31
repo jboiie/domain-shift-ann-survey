@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite it as below."
+title: "Domain Shift in Artificial Neural Networks: A Survey of Domain Adaptation Techniques"
+type: software
+authors:
+  - given-names: "Jai"
+  - given-names: "Aggam Singh"
+    family-names: "Arora"
+  - given-names: "Areeb"
+    family-names: "Akhtar"
+  - given-names: "Ujwal"
+    family-names: "M"
+date-released: "2026-11-01"
+year: 2026
+license: MIT
+repository-code: "https://github.com/jboiie/domain-shift-ann-survey"
+abstract: "Survey and experiments on domain shift and domain adaptation in neural networks (MNIST to MNIST-M): AdaBN vs DANN."
+keywords:
+  - domain adaptation
+  - domain shift
+  - transfer learning
+  - DANN
+  - AdaBN
