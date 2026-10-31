@@ -19,7 +19,7 @@ def body(doc, figs, tabs):
     screenshots(doc)
 
 
-def main(out="Domain_Shift_Survey_Report.docx"):
+def main(out=str(ROOT / "report" / "Domain_Shift_Survey_Report.docx")):
     # Pass 1 collects every figure and table so the list chapters (4, 5) can precede the chapters that contain them
     tmp = new_document()
     body(tmp, [], [])
