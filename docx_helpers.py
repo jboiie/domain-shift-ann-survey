@@ -191,6 +191,10 @@ def table(doc, caption, header, rows, widths, size=10, bold_first_col=False):
         row._tr.get_or_add_trPr().append(cs)
         for i, w in enumerate(widths):
             row.cells[i].width = Inches(w)
+    for row in t.rows[:-1]:
+        for c in row.cells:
+            for p in c.paragraphs:
+                p.paragraph_format.keep_with_next = True
     doc.add_paragraph().paragraph_format.space_after = Pt(6)
     return t
 

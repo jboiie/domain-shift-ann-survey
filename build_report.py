@@ -187,7 +187,7 @@ def ch1(doc):
     para(doc, "In practice the assumption often fails. A model is trained on data from one hospital, one camera, one season or "
               "one city, and is then applied somewhere else. The training distribution is called the source domain and the "
               "deployment distribution is called the target domain. The difference between them is called domain shift or "
-              "dataset shift [Quinonero-Candela et al., 2009]. Domain shift is not a rare corner case: it appears whenever the "
+              "dataset shift [Quiñonero-Candela et al., 2009]. Domain shift is not a rare corner case: it appears whenever the "
               "conditions of data collection change, and a network that scores highly on its own test set can perform poorly "
               "on the target domain.")
     para(doc, "Domain adaptation is the area of machine learning that studies how to reduce this loss of accuracy. It is a "
@@ -386,7 +386,7 @@ def ch2(doc):
         "Compares the surveyed methods on target-label need, target-data need during training, compute cost, implementation "
         "complexity and typical failure modes.",
         ["Method", "Needs target labels?", "Needs target data at training?", "Compute cost", "Implementation complexity", "Typical failure modes"],
-        rows, [1.0, 0.7, 0.9, 1.0, 0.8, 1.6], size=8.5, expect=1, bold_first_col=True)
+        rows, [0.95, 0.65, 0.85, 0.95, 0.95, 1.55], size=8.5, expect=1, bold_first_col=True)
 
     h2(doc, "2.3 Research Gaps Identified")
     numbered(doc, ["**Toy benchmarks.** Many methods are evaluated on digits and office-object benchmarks. Gains on these do not "

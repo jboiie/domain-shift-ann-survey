@@ -11,7 +11,7 @@ def ch7(doc):
               f"{len(CFG['seeds'])} random seeds. Accuracy is measured on the full MNIST test set ({CFG['n_test_mnist']:,} images) and the "
               f"full MNIST-M test set ({CFG['n_test_mnistm']:,} images). The share of the gap closed is "
               "(method - source-only) / (target-only - source-only), computed on MNIST-M accuracy for each seed and then averaged.")
-    tab(doc, "Results summary (mean ± standard deviation over 3 seeds)",
+    tab(doc, "Results summary (mean Â± standard deviation over 3 seeds)",
         "Gives MNIST accuracy, MNIST-M accuracy and the share of the gap closed for source-only, AdaBN, DANN and target-only.",
         ["Method", "MNIST accuracy (%)", "MNIST-M accuracy (%)", "Gap closed (%)"],
         rows_results_all(), [1.5, 1.6, 1.7, 1.4], size=10, expect=5)
@@ -35,20 +35,20 @@ def ch7(doc):
               "explanation is consistent with the results but was not tested separately.")
 
     h2(doc, "7.3 AdaBN")
-    para(doc, f"AdaBN closed {gap('adabn')}% of the gap ({pm('adabn', 'mnistm')} on MNIST-M) with about "
-              f"{S['adabn']['train_seconds_per_run']:.1f} seconds of computation. It works because the first layers of a CNN see "
+    para(doc, f"AdaBN closed {gap('adabn')}% of the gap ({pm('adabn', 'mnistm')}% on MNIST-M) with about "
+              f"{S['adabn']['train_seconds_per_run']:.1f} seconds of computation. A likely reason is that the first layers of a CNN see "
               "the pixel statistics directly. MNIST-M images have different channel means and variances from MNIST images, "
               "so the source-estimated BN statistics push the activations of target images to the wrong range. Replacing "
               "them with target statistics puts the activations back into a range the weights were trained for. No label or "
-              "weight update is needed, because the shift here is largely a change of overall intensity and contrast "
-              "statistics, which BN can absorb. The remaining gap shows that statistics alone are not enough: the textured "
+              "weight update is needed, which suggests that part of the shift here is a change of overall intensity and "
+              "contrast statistics that BN can absorb. This explanation was not tested separately. The remaining gap shows that statistics alone are not enough: the textured "
               "backgrounds of MNIST-M are not just a change of mean and variance.")
     para(doc, f"There is a cost. After adaptation, accuracy on MNIST drops to {pm('adabn', 'mnist')}%, with a large spread between "
               "seeds, since the model now describes MNIST-M statistics. AdaBN gives a model for one target domain, not a model "
               "that works on both.")
 
     h2(doc, "7.4 DANN")
-    para(doc, f"DANN reached {pm('dann', 'mnistm')}% on MNIST-M and closed {S['dann']['gap_mean']:.1f} ± {S['dann']['gap_std']:.1f}% "
+    para(doc, f"DANN reached {pm('dann', 'mnistm')}% on MNIST-M and closed {S['dann']['gap_mean']:.1f} Â± {S['dann']['gap_std']:.1f}% "
               f"of the gap, less than AdaBN. It kept MNIST accuracy high ({pm('dann', 'mnist')}%). Run-to-run variation was large: "
               f"MNIST-M accuracy was {', '.join(f'{v:.1f}%' for v in R['per_seed']['dann']['mnistm'])} for the three seeds. "
               "This agrees with the literature on the instability of adversarial training (Section 2.3).")
@@ -77,7 +77,7 @@ def ch7(doc):
 
     h2(doc, "7.6 What Worked and Why")
     bullets(doc, [f"**AdaBN** gave the best improvement per unit of effort ({gap('adabn')}% of the gap closed, no training), "
-                  "because the shift is largely visible in layer statistics.",
+                  "likely because part of the shift is visible in layer statistics.",
                   f"**DANN** improved on source-only ({acc('dann', 'mnistm')}% against {acc('source_only', 'mnistm')}%) and kept source accuracy, "
                   "but was unstable and, under this untuned setup, less effective than AdaBN.",
                   f"**Target labels** remain the most reliable fix: the target-only model reached {acc('target_only', 'mnistm')}%. "
@@ -97,7 +97,7 @@ def ch7(doc):
 
 def rows_results_all():
     names = {"source_only": "Source-only", "adabn": "AdaBN", "dann": "DANN", "target_only": "Target-only"}
-    return [[names[k], pm(k, "mnist"), pm(k, "mnistm"), f"{S[k]['gap_mean']:.1f} ± {S[k]['gap_std']:.1f}"] for k in names]
+    return [[names[k], pm(k, "mnist"), pm(k, "mnistm"), f"{S[k]['gap_mean']:.1f} Â± {S[k]['gap_std']:.1f}"] for k in names]
 
 
 def ch8(doc):
@@ -138,7 +138,7 @@ REFS = [
         ("Ben-David, S., Blitzer, J., Crammer, K., Kulesza, A., Pereira, F., & Vaughan, J. W. (2010). A theory of learning from "
          "different domains. Machine Learning, 79(1-2), 151-175. doi:10.1007/s10994-009-5152-4.",
          "Gives the bound on target error in terms of source error and domain divergence."),
-        ("Quinonero-Candela, J., Sugiyama, M., Schwaighofer, A., & Lawrence, N. D. (Eds.). (2009). Dataset Shift in Machine "
+        ("Quiñonero-Candela, J., Sugiyama, M., Schwaighofer, A., & Lawrence, N. D. (Eds.). (2009). Dataset Shift in Machine "
          "Learning. MIT Press.", "Standard reference on dataset shift and its types."),
         ("Shimodaira, H. (2000). Improving predictive inference under covariate shift by weighting the log-likelihood function. "
          "Journal of Statistical Planning and Inference, 90(2), 227-244.", "Early formal treatment of covariate shift."),
@@ -218,7 +218,7 @@ def ch9(doc):
         h2(doc, f"{i}. {head}")
         para(doc, sub, italic=True, keep_next=True)
         for ref, key in items:
-            p = para(doc, "•\t" + ref, after=0)
+            p = para(doc, "â€¢\t" + ref, after=0)
             p.paragraph_format.left_indent = Inches(0.4)
             p.paragraph_format.first_line_indent = Inches(-0.25)
             p.paragraph_format.keep_with_next = True
@@ -235,15 +235,23 @@ def _src(name, tree, lines):
     raise KeyError(name)
 
 
-def wrap_code(txt, width=86):
+def wrap_code(txt, width=90):
     out = []
-    for ln in txt.split("\n"):
+    for ln in txt.split("
+"):
+        ind = len(ln) - len(ln.lstrip())
+        if len(ln) > width and not ln.lstrip().startswith("#") and "  # " in ln:
+            code_part, comment = ln.split("  # ", 1)
+            out.append(" " * ind + "# " + comment)  # trailing comment moves to its own line above the code
+            ln = code_part
         if len(ln) <= width:
             out.append(ln)
-            continue
-        ind = len(ln) - len(ln.lstrip())
-        out += textwrap.wrap(ln, width, subsequent_indent=" " * (ind + 4), break_long_words=False, replace_whitespace=False)
-    return "\n".join(out)
+        elif ln.lstrip().startswith("#"):
+            out += textwrap.wrap(ln, width, subsequent_indent=" " * ind + "# ", break_long_words=False)
+        else:
+            out += textwrap.wrap(ln, width, subsequent_indent=" " * (ind + 4), break_long_words=False, replace_whitespace=False)
+    return "
+".join(out)
 
 
 def ch10(doc):
