@@ -8,16 +8,15 @@ import da""",
 """# Load MNIST (source) and MNIST-M (target), 3-channel 32x32, 10k-image training subsample per domain
 da.set_seed(0)
 data = da.load_data()
-for k, (x, y) in data.items():
-    print(k, tuple(x.shape))""",
+da.audit(data)""",
 """# Sample images from both domains
 da.sample_grid(data, "figures/samples.png")""",
-"""# Source-only, AdaBN, DANN and target-only on 3 seeds, 20 epochs each
+"""# Source-only, AdaBN, DANN and target-only on 3 seeds, 30 epochs each, SGD recipe of Ganin et al.
 logs = []
 def log(s):
     logs.append(s)
     print(s)
-res, models = da.run_all(data, seeds=(0, 1, 2), epochs=20, log=log)
+res, models = da.run_all(data, seeds=(0, 1, 2), epochs=30, log=log)
 res["logs"] = logs""",
 """# Results table
 names = {"source_only": "Source-only", "adabn": "AdaBN", "dann": "DANN", "target_only": "Target-only"}
