@@ -189,7 +189,8 @@ REFS = [
          "Medicine, 15(11), e1002683. doi:10.1371/journal.pmed.1002683.",
          "Pneumonia CNNs were less accurate at outside hospitals in 3 of 5 comparisons and could identify the hospital system."),
         ("Sakaridis, C., Dai, D., & Van Gool, L. (2018). Semantic foggy scene understanding with synthetic data. International "
-         "Journal of Computer Vision. arXiv:1708.07819.", "Adapting scene understanding from clear weather to fog."),
+         "Journal of Computer Vision, 126(9), 973-992. doi:10.1007/s11263-018-1072-8.",
+         "Scene understanding in fog, with synthetic fog added to clear-weather images."),
     ]),
     ("Tools and Frameworks", "Software and datasets used in the experiment", [
         ("Paszke, A., et al. (2019). PyTorch: An imperative style, high-performance deep learning library. Advances in Neural "
