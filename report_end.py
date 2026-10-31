@@ -3,14 +3,31 @@ import textwrap
 from build_report import *
 
 
+def _last_domain_loss():
+    line = [l for l in R["logs"] if l.startswith("[dann] seed 0")][-1]
+    return float(line.split("domain_loss ")[1].split()[0])
+
+
 def ch7(doc):
     chapter(doc, "CHAPTER 7", "RESULTS AND DISCUSSIONS")
     names = {"source_only": "Source-only", "adabn": "AdaBN", "dann": "DANN", "target_only": "Target-only"}
+    ps = R["per_seed"]
     h2(doc, "7.1 Project Outcomes (Performance Evaluation, Comparisons, Testing Results)")
-    para(doc, f"All four settings use the same CNN backbone and {CFG['epochs']} epochs, and were run with "
+    para(doc, f"All four settings use the same CNN backbone, the same training recipe and {CFG['epochs']} epochs, and were run with "
               f"{len(CFG['seeds'])} random seeds. Accuracy is measured on the full MNIST test set ({CFG['n_test_mnist']:,} images) and the "
               f"full MNIST-M test set ({CFG['n_test_mnistm']:,} images). The share of the gap closed is "
               "(method - source-only) / (target-only - source-only), computed on MNIST-M accuracy for each seed and then averaged.")
+    para(doc, "Methodology notes. First, the inputs were audited before training: both domains reach the model as 3 x 32 x 32 "
+              "float tensors in [-1, 1] with the same normalization (mean 0.5, standard deviation 0.5 per channel), the three "
+              "channels of MNIST are identical copies of the grayscale image, and labels are integer class indices. The audit "
+              "found nothing to change. Second, AdaBN is evaluated with two sets of batch normalization statistics: MNIST test "
+              "images are scored with the original source statistics and MNIST-M test images with the statistics re-estimated on "
+              "unlabeled MNIST-M training images. The weights are identical in both cases, so the MNIST accuracy of AdaBN equals "
+              "that of the source-only model by construction. Third, every method is trained with the recipe of Ganin et al.: "
+              "SGD with momentum 0.9 and a learning rate annealed as 0.01 / (1 + 10p)^0.75, where p runs from 0 to 1 over "
+              "training. DANN uses the reversal coefficient λ = 2 / (1 + exp(-10p)) - 1. The recipe and the number of epochs "
+              "were fixed before the reported run and applied identically to all methods. A first run with the Adam optimizer is "
+              "not reported.")
     tab(doc, "Results summary (mean ± standard deviation over 3 seeds)",
         "Gives MNIST accuracy, MNIST-M accuracy and the share of the gap closed for source-only, AdaBN, DANN and target-only.",
         ["Method", "MNIST accuracy (%)", "MNIST-M accuracy (%)", "Gap closed (%)"],
@@ -20,78 +37,103 @@ def ch7(doc):
     tab(doc, "MNIST-M accuracy (%) for each seed",
         "Lists the MNIST-M test accuracy of every method for each random seed, to show the run-to-run variation.",
         ["Method"] + [f"Seed {s}" for s in CFG["seeds"]],
-        [[names[k]] + [f"{v:.2f}" for v in R["per_seed"][k]["mnistm"]] for k in names], [1.8, 1.4, 1.4, 1.4], size=10, expect=6)
+        [[names[k]] + [f"{v:.2f}" for v in ps[k]["mnistm"]] for k in names], [1.8, 1.4, 1.4, 1.4], size=10, expect=6)
+    tab(doc, "MNIST accuracy (%) for each seed",
+        "Lists the MNIST test accuracy of every method for each random seed.",
+        ["Method"] + [f"Seed {s}" for s in CFG["seeds"]],
+        [[names[k]] + [f"{v:.2f}" for v in ps[k]["mnist"]] for k in names], [1.8, 1.4, 1.4, 1.4], size=10, expect=7)
+    tab(doc, "Gap closed (%) for each seed",
+        "Lists the share of the source-only to target-only gap on MNIST-M that AdaBN and DANN closed for each random seed.",
+        ["Method"] + [f"Seed {s}" for s in CFG["seeds"]],
+        [[names[k]] + [f"{v:.1f}" for v in R["gap_closed_per_seed"][k]] for k in ("adabn", "dann")], [1.8, 1.4, 1.4, 1.4], size=10, expect=8)
     tab(doc, "Average training time per run on CPU",
         "Gives the average time in seconds needed to train or adapt each method for one seed.",
         ["Method", "Time per run (s)"],
-        [[names[k], f"{S[k]['train_seconds_per_run']:.1f}"] for k in names], [2.2, 2.2], size=10, expect=7)
+        [[names[k], f"{S[k]['train_seconds_per_run']:.1f}"] for k in names], [2.2, 2.2], size=10, expect=9)
 
     h2(doc, "7.2 Domain Shift")
-    para(doc, f"The source-only model is almost perfect on MNIST ({acc('source_only', 'mnist')}%) and close to chance on MNIST-M "
-              f"({acc('source_only', 'mnistm')}%). High accuracy on the source test set therefore says nothing about accuracy "
-              "on the target domain, which is the same point made by the hospital X-ray study: internal validation did not "
-              "predict performance at other sites. The network likely relies on cues that are present in clean MNIST and "
-              "absent or changed in MNIST-M, such as the contrast between a bright stroke and a black background. This "
+    para(doc, f"The source-only model is almost perfect on MNIST ({acc('source_only', 'mnist')}%) and far lower on MNIST-M "
+              f"({acc('source_only', 'mnistm')}%), where chance is 10%. High accuracy on the source test set therefore says "
+              "nothing about accuracy on the target domain, which is the same point made by the hospital X-ray study: internal "
+              "validation did not predict performance at other sites. The network likely relies on cues that are present in "
+              "clean MNIST and changed in MNIST-M, such as the contrast between a bright stroke and a black background. This "
               "explanation is consistent with the results but was not tested separately.")
+    para(doc, "For reference, Ganin and Lempitsky (2015) report 57.5% source-only accuracy and 98.9% target-only accuracy on "
+              "MNIST to MNIST-M, with their own MNIST-M generation, network and training set sizes. The source-only accuracy "
+              "here is lower, while the target-only accuracy is close. The source-only difference may come from the smaller "
+              "network, the 10,000-image subsample or the copy of MNIST-M used, but this was not isolated by an experiment, "
+              "and the absolute numbers in this report should not be compared directly with published ones.")
 
     h2(doc, "7.3 AdaBN")
-    para(doc, f"AdaBN closed {gap('adabn')}% of the gap ({pm('adabn', 'mnistm')}% on MNIST-M) with about "
-              f"{S['adabn']['train_seconds_per_run']:.1f} seconds of computation. A likely reason is that the first layers of a CNN see "
-              "the pixel statistics directly. MNIST-M images have different channel means and variances from MNIST images, "
-              "so the source-estimated BN statistics push the activations of target images to the wrong range. Replacing "
-              "them with target statistics puts the activations back into a range the weights were trained for. No label or "
-              "weight update is needed, which suggests that part of the shift here is a change of overall intensity and "
-              "contrast statistics that BN can absorb. This explanation was not tested separately. The remaining gap shows that statistics alone are not enough: the textured "
-              "backgrounds of MNIST-M are not just a change of mean and variance.")
-    para(doc, f"There is a cost. After adaptation, accuracy on MNIST drops to {pm('adabn', 'mnist')}%, with a large spread between "
-              "seeds, since the model now describes MNIST-M statistics. AdaBN gives a model for one target domain, not a model "
-              "that works on both.")
+    para(doc, f"AdaBN closed {S['adabn']['gap_mean']:.1f} ± {S['adabn']['gap_std']:.1f}% of the gap ({pm('adabn', 'mnistm')}% on "
+              f"MNIST-M) with about {S['adabn']['train_seconds_per_run']:.1f} seconds of computation, and it improved on the "
+              f"source-only model for every seed ({', '.join(f'{v:.1f}' for v in ps['adabn']['mnistm'])}% against "
+              f"{', '.join(f'{v:.1f}' for v in ps['source_only']['mnistm'])}%). A likely reason is that the first layers of a "
+              "CNN see the pixel statistics directly. MNIST-M images have different channel means and variances from MNIST "
+              "images, so the source-estimated BN statistics push the activations of target images to the wrong range. "
+              "Replacing them with target statistics puts the activations back into a range the weights were trained for. No "
+              "label or weight update is needed, which suggests that part of the shift here is a change of overall intensity "
+              "and contrast statistics that BN can absorb. This explanation was not tested separately. The remaining gap shows "
+              "that statistics alone are not enough: the textured backgrounds of MNIST-M are not just a change of mean and "
+              "variance.")
+    para(doc, "AdaBN needs unlabeled target data at adaptation time and a way to know which domain an input comes from, because "
+              "the model holds one set of statistics per domain. Its MNIST accuracy is unchanged only because MNIST images are "
+              "still scored with the source statistics.")
 
     h2(doc, "7.4 DANN")
     para(doc, f"DANN reached {pm('dann', 'mnistm')}% on MNIST-M and closed {S['dann']['gap_mean']:.1f} ± {S['dann']['gap_std']:.1f}% "
-              f"of the gap, less than AdaBN. It kept MNIST accuracy high ({pm('dann', 'mnist')}%). Run-to-run variation was large: "
-              f"MNIST-M accuracy was {', '.join(f'{v:.1f}%' for v in R['per_seed']['dann']['mnistm'])} for the three seeds. "
-              "This agrees with the literature on the instability of adversarial training (Section 2.3).")
+              f"of the gap, while keeping MNIST accuracy at {pm('dann', 'mnist')}%. It improved on source-only in every seed "
+              f"({', '.join(f'{v:.1f}' for v in ps['dann']['mnistm'])}%), but it closed less of the gap than AdaBN on average and "
+              f"in every seed (AdaBN: {', '.join(f'{v:.1f}' for v in ps['adabn']['mnistm'])}%). DANN took "
+              f"{S['dann']['train_seconds_per_run']:.0f} seconds per run against {S['adabn']['train_seconds_per_run']:.1f} seconds "
+              "for AdaBN. Its improvement is therefore modest, and it varies between seeds more than that of AdaBN.")
     para(doc, "DANN needs no target labels because the only signal it takes from the target data is the domain label, which "
               "is known by construction (every image in the target batch is a target image). The classification loss uses "
               "source labels only. The target data influence the feature extractor through the reversed gradient of the domain "
               "loss.")
-    para(doc, "Several factors may explain the modest result, and none of them was isolated by an experiment here. The "
-              "training budget is small (10,000 images per domain, 20 epochs). The optimizer is Adam with a constant learning "
-              "rate, whereas the original method used SGD with momentum and a learning-rate schedule. No hyperparameters were "
-              "tuned, and the backbone was chosen for speed. Finally, making the two feature distributions overlap does not by "
-              "itself make digit classes line up: a feature extractor can confuse the domain classifier while mapping target "
-              "digits to the wrong class region, and this is a known weakness of marginal feature alignment [Zhao et al., 2019].")
+    para(doc, f"The training log (Screenshot 2) shows that the domain loss reached {_last_domain_loss():.3f} in the last epoch of "
+              "seed 0, which is the value ln 2 = 0.693 expected when the domain classifier performs at chance on training batches. "
+              "The adversarial game therefore ended in a state where the domain classifier could not separate the domains, yet "
+              f"target accuracy was only {acc('dann', 'mnistm')}% and the t-SNE view (Figure 4) still shows the two domains apart. "
+              "Fooling a domain classifier does not guarantee that the feature distributions are aligned class by class, and "
+              "marginal feature alignment is known to have this limit [Zhao et al., 2019]. Other factors may also contribute: the "
+              "network is small, the training set is a 10,000-image subsample, the domain classifier was not tuned, and the source "
+              "and target images of a step share one batch normalization batch. None of these was isolated by an experiment. Ganin "
+              "and Lempitsky (2015) report 81.5% for DANN on MNIST to MNIST-M with a different setup, and the accuracy here is "
+              "lower.")
 
     h2(doc, "7.5 What the t-SNE Plot Shows")
-    para(doc, "In Figure 4, the source-only model produces ten tight MNIST clusters, and the MNIST-M features are placed in "
-              "a different region. This matches the near-chance target accuracy: target images are not mapped near the "
-              "class clusters. After DANN, target features move towards the source clusters and partly overlap with them, "
-              "which is the intended effect of the adversarial loss. The plot does not show full merging of the domains: a "
-              "large part of the MNIST-M points still forms its own groups. This is consistent with the moderate "
-              f"improvement for seed 0 (MNIST-M accuracy {R['per_seed']['dann']['mnistm'][0]:.1f}% for DANN against "
-              f"{R['per_seed']['source_only']['mnistm'][0]:.1f}% for source-only).")
+    para(doc, "In Figure 4, the source-only model produces ten tight MNIST clusters, and the MNIST-M features form one large, "
+              "diffuse region that touches only a few of those clusters. This matches the low target accuracy: target images "
+              "are mostly not mapped near the class clusters. After DANN, the ten MNIST clusters remain, and the MNIST-M points "
+              "form elongated bands that stay apart from all of them. The plot therefore does not show the domains merging, "
+              f"which is consistent with the modest accuracy gain for seed 0 (MNIST-M accuracy {ps['dann']['mnistm'][0]:.1f}% for "
+              f"DANN against {ps['source_only']['mnistm'][0]:.1f}% for source-only).")
     para(doc, "t-SNE is a qualitative tool. The plot is from one seed and 2,000 points, t-SNE distances are not meaningful "
-              "beyond local neighbourhoods, and overlap in two dimensions does not prove that the classes are aligned. It "
-              "supports the accuracy numbers but does not replace them.")
+              "beyond local neighbourhoods, and the absence of overlap in two dimensions does not by itself prove that the "
+              "domains are separable in the full 128-dimensional space. The plot supports the accuracy numbers but does not "
+              "replace them.")
 
     h2(doc, "7.6 What Worked and Why")
-    bullets(doc, [f"**AdaBN** gave the best improvement per unit of effort ({gap('adabn')}% of the gap closed, no training), "
-                  "likely because part of the shift is visible in layer statistics.",
-                  f"**DANN** improved on source-only ({acc('dann', 'mnistm')}% against {acc('source_only', 'mnistm')}%) and kept source accuracy, "
-                  "but was unstable and, under this untuned setup, less effective than AdaBN.",
+    bullets(doc, [f"**AdaBN** gave the best improvement per unit of effort ({gap('adabn')}% of the gap closed in about "
+                  f"{S['adabn']['train_seconds_per_run']:.1f} seconds, without training), likely because part of the shift is "
+                  "visible in layer statistics. It was better than DANN in every seed.",
+                  f"**DANN** improved on source-only ({acc('dann', 'mnistm')}% against {acc('source_only', 'mnistm')}%) and kept source "
+                  f"accuracy, using no target labels, but it closed only {gap('dann')}% of the gap and was less effective than AdaBN "
+                  "in this setup.",
                   f"**Target labels** remain the most reliable fix: the target-only model reached {acc('target_only', 'mnistm')}%. "
                   "Domain adaptation methods are useful when such labels cannot be obtained."])
 
     h2(doc, "7.7 Limitations")
     bullets(doc, ["Digits are a toy benchmark. The shift from MNIST to MNIST-M is large but synthetic. Real shifts, for example "
                   "between hospitals, are subtler, mix covariate and label shift, and cannot be checked as easily.",
-                  f"Only {len(CFG['seeds'])} seeds, a {CFG['n_train_per_domain']:,}-image subsample per domain and a small CNN were used. Rankings of "
-                  "methods may change with a different backbone, budget or tuning.",
-                  "DANN can be unstable to train, and this report did not tune it. The comparison shows how the methods behave "
-                  "under identical, untuned conditions, not their best achievable accuracy.",
-                  "Hyperparameters, including the number of epochs, were fixed in advance and not chosen on the target test "
-                  "set. A real unsupervised setting has no target labels for model selection.",
+                  f"Only {len(CFG['seeds'])} seeds, a {CFG['n_train_per_domain']:,}-image subsample per domain and a small CNN were used. "
+                  "Rankings of methods may change with a different backbone, budget or tuning.",
+                  "DANN used the recipe of Ganin et al. but on a smaller network and dataset, and its domain classifier and "
+                  "batch handling were not tuned. The comparison shows how the methods behave under identical conditions, "
+                  "not their best achievable accuracy, and it is not a reproduction of the published DANN numbers.",
+                  "The recipe and the number of epochs were fixed in advance and applied to all methods. A real unsupervised "
+                  "setting has no target labels for model selection.",
                   "Only AdaBN and DANN were implemented. The other surveyed methods are discussed from the literature only."])
 
 
@@ -111,19 +153,19 @@ def ch8(doc):
     bullets(doc, [f"A CNN trained on MNIST scored {acc('source_only', 'mnist')}% on MNIST and {acc('source_only', 'mnistm')}% on MNIST-M, while a "
                   f"CNN trained on labeled MNIST-M scored {acc('target_only', 'mnistm')}% on MNIST-M. High source accuracy did not "
                   "predict target accuracy.",
-                  f"AdaBN, which only replaces batch normalization statistics, closed {gap('adabn')}% of the gap without training, at the "
-                  "cost of lower accuracy on the source domain.",
-                  f"DANN closed {gap('dann')}% of the gap on average, kept source accuracy, and varied strongly across seeds. Its features "
-                  "moved towards the source clusters but did not merge with them in the t-SNE view.",
+                  f"AdaBN, which only replaces batch normalization statistics, closed {gap('adabn')}% of the gap in about one second "
+                  f"without training, and left source accuracy unchanged when MNIST was scored with source statistics.",
+                  f"DANN closed {gap('dann')}% of the gap on average, kept source accuracy, and was less effective than AdaBN in "
+                  "every seed. Its domain classifier ended at chance level, but the t-SNE view still shows the two domains apart.",
                   "Methods differ in what they require. AdaBN and TENT need little compute, DANN and ADDA need adversarial "
                   "training, CyCADA needs image translation, and fine-tuning needs target labels."])
     para(doc, "The study met its objectives: it defined the types of shift, linked the vulnerability of networks to "
               "generalization, inductive bias and data selection, compared the method families, and measured two of them "
               "under identical conditions. It also has limits. The benchmark is a toy one, the training budget is small, DANN "
-              "was not tuned, and the other surveyed methods were not run.")
+              "was only moderately effective in this setup, and the other surveyed methods were not run.")
     h2(doc, "Future Enhancement")
-    bullets(doc, ["Tune DANN following Ganin et al. (SGD with momentum, annealed learning rate), train on the full datasets, and "
-                  "report how much of the instability is due to the training setup.",
+    bullets(doc, ["Train DANN longer on the full datasets and tune the domain classifier and batch handling, then report how "
+                  "much of the gap to published results is due to the setup.",
                   "Add the other surveyed methods on the same backbone (Deep CORAL, DAN, TENT) for a wider like-for-like comparison.",
                   "Add USPS as a second target domain, and a harder benchmark with natural images.",
                   "Test on a real medical-imaging shift, for example chest X-rays from two hospitals, where label shift and "
@@ -163,7 +205,7 @@ REFS = [
          "2016 Workshops, LNCS 9915, 443-450.", "Aligns feature covariances of source and target."),
         ("Ganin, Y., & Lempitsky, V. (2015). Unsupervised domain adaptation by backpropagation. Proceedings of the 32nd "
          "International Conference on Machine Learning (ICML), PMLR 37, 1180-1189.",
-         "Introduces the gradient reversal layer and the MNIST-M dataset."),
+         "Introduces the gradient reversal layer and the MNIST-M dataset; reports 57.5% source-only and 81.5% DANN accuracy on MNIST to MNIST-M."),
         ("Ganin, Y., Ustinova, E., Ajakan, H., Germain, P., Larochelle, H., Laviolette, F., Marchand, M., & Lempitsky, V. "
          "(2016). Domain-adversarial training of neural networks. Journal of Machine Learning Research, 17(59), 1-35.",
          "Full DANN paper with the lambda schedule and theory."),
@@ -199,8 +241,6 @@ REFS = [
          "2825-2830.", "Provides the t-SNE implementation."),
         ("van der Maaten, L., & Hinton, G. (2008). Visualizing data using t-SNE. Journal of Machine Learning Research, 9, "
          "2579-2605.", "The t-SNE method."),
-        ("Kingma, D. P., & Ba, J. (2015). Adam: A method for stochastic optimization. International Conference on Learning "
-         "Representations (ICLR). arXiv:1412.6980.", "Optimizer used for all training."),
         ("Lhoest, Q., et al. (2021). Datasets: A community library for natural language processing. Proceedings of the 2021 "
          "Conference on Empirical Methods in Natural Language Processing: System Demonstrations, 175-184.",
          "Hugging Face datasets library used to load MNIST-M."),
@@ -260,7 +300,7 @@ def ch10(doc):
     para(doc, "The listings below are copied from da.py, the helper module used by the notebook domain_shift.ipynb. "
               "Long lines are wrapped for printing.")
     for title, names in [("1. Data loading and preprocessing (MNIST and MNIST-M)", ["load_data"]),
-                         ("2. Shared CNN backbone and supervised training (source-only and target-only)", ["Net", "train_supervised"]),
+                         ("2. Shared CNN backbone and supervised training (source-only and target-only)", ["Net", "make_opt", "set_lr", "train_supervised"]),
                          ("3. AdaBN", ["adabn"]),
                          ("4. DANN: gradient reversal layer and training loop", ["GRL", "train_dann"])]:
         h2(doc, title)

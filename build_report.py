@@ -166,14 +166,15 @@ def abstract(doc):
               "effort and typical failure modes.")
     para(doc, f"A small worked example supports the survey. A convolutional network is trained on MNIST (source) and tested on "
               f"MNIST-M (target), a version of MNIST with coloured natural-image backgrounds. Training uses "
-              f"{CFG['n_train_per_domain']:,} images per domain, {CFG['epochs']} epochs and {len(CFG['seeds'])} random seeds, and results are "
-              f"reported as mean accuracy over the seeds. The source-only model reaches {acc('source_only', 'mnist')}% on MNIST "
-              f"but only {acc('source_only', 'mnistm')}% on MNIST-M. A model trained on labeled MNIST-M reaches "
-              f"{acc('target_only', 'mnistm')}%, which is the ceiling. AdaBN, which needs no training, raises MNIST-M accuracy to "
-              f"{acc('adabn', 'mnistm')}% ({gap('adabn')}% of the gap closed). DANN, trained with labeled MNIST and unlabeled "
-              f"MNIST-M, reaches {acc('dann', 'mnistm')}% ({gap('dann')}% of the gap closed). A t-SNE view of the learned features "
-              f"is used to inspect how the two domains are arranged before and after adversarial training. The digits are a "
-              f"toy benchmark, and the report discusses why real shifts such as those in medical imaging are harder.")
+              f"{CFG['n_train_per_domain']:,} images per domain, {CFG['epochs']} epochs, the SGD recipe of Ganin et al. and "
+              f"{len(CFG['seeds'])} random seeds, and results are reported as mean accuracy over the seeds. The source-only model "
+              f"reaches {acc('source_only', 'mnist')}% on MNIST but only {acc('source_only', 'mnistm')}% on MNIST-M. A model trained "
+              f"on labeled MNIST-M reaches {acc('target_only', 'mnistm')}%, which is the ceiling. AdaBN, which needs no training, "
+              f"raises MNIST-M accuracy to {acc('adabn', 'mnistm')}% ({gap('adabn')}% of the gap closed) and leaves MNIST accuracy "
+              f"unchanged. DANN, trained with labeled MNIST and unlabeled MNIST-M, reaches {acc('dann', 'mnistm')}% "
+              f"({gap('dann')}% of the gap closed), less than AdaBN in every seed. A t-SNE view of the learned features shows that "
+              f"the two domains remain separate after DANN. The digits are a toy benchmark, and the report discusses why real "
+              f"shifts such as those in medical imaging are harder.")
 
 
 # ---------------------------------------------------------------- Chapter 1
