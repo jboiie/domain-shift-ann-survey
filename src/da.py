@@ -1,4 +1,5 @@
 import random
+from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
@@ -8,6 +9,8 @@ from datasets import load_dataset
 from torchvision import datasets, transforms
 
 DEV = "cpu"
+ROOT = Path(__file__).resolve().parents[1]  # repository root
+DATA = ROOT / "data"  # download cache, not tracked
 N_TRAIN = 10000  # per-domain training subsample, keeps every method to a few minutes on CPU
 
 
@@ -27,7 +30,7 @@ def load_data(n_train=N_TRAIN, seed=0):
     rs = np.random.RandomState(seed)
     mn = {}
     for split in ("train", "test"):
-        ds = datasets.MNIST("data", train=(split == "train"), download=True)
+        ds = datasets.MNIST(DATA, train=(split == "train"), download=True)
         x = F.interpolate(ds.data[:, None].float(), size=32, mode="bilinear", align_corners=False)
         x = x.expand(-1, 3, -1, -1).numpy().transpose(0, 2, 3, 1).clip(0, 255).astype(np.uint8)
         mn[split] = (x, ds.targets.numpy())
