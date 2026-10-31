@@ -187,7 +187,9 @@ def run_all(data, seeds=(0, 1, 2), epochs=20, log=print):
         t = time.time(); tgt = train_supervised(xm, ym, epochs, s, log, "target_only"); secs["target_only"] += time.time() - t
         for n, m in zip(names, (src, ada, dn, tgt)):
             for d, (x, y) in tests.items():
-                per[n][d].append(accuracy(m, x, y))
+                # AdaBN keeps two sets of BN statistics: source statistics for MNIST, target statistics for MNIST-M
+                me = src if (n == "adabn" and d == "mnist") else m
+                per[n][d].append(accuracy(me, x, y))
             log(f"seed {s} {n}: MNIST {per[n]['mnist'][-1]:.2f}  MNIST-M {per[n]['mnistm'][-1]:.2f}")
         if s == seeds[0]:
             keep = {"source_only": src, "dann": dn}
