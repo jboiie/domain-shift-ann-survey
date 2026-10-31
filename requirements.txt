@@ -1,0 +1,17 @@
+# Direct dependencies, pinned to the versions used for the reported results (Python 3.13).
+# torch and torchvision were run as the CPU builds (2.6.0+cpu, 0.21.0+cpu).
+# CPU wheels: pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.6.0
+torchvision==0.21.0
+numpy==2.4.6
+pandas==3.0.3
+matplotlib==3.11.1
+scikit-learn==1.9.1
+datasets==5.0.1
+pyarrow==25.0.1
+python-docx==1.2.0
+nbformat==5.11.1
+nbclient==0.11.0
+nbconvert==7.17.2
+ipykernel==7.4.0
+pytest==9.0.3
