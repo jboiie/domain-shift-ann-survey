@@ -1,5 +1,8 @@
+from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def box(ax, x, y, w, h, text, fc="#e8eef7", fs=9):
@@ -62,5 +65,5 @@ def architecture(path):
 
 
 if __name__ == "__main__":
-    taxonomy("figures/taxonomy.png")
-    architecture("figures/architecture.png")
+    taxonomy(str(ROOT / "figures/taxonomy.png"))
+    architecture(str(ROOT / "figures/architecture.png"))
