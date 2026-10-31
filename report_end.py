@@ -60,7 +60,7 @@ def ch7(doc):
               "explanation is consistent with the results but was not tested separately.")
     para(doc, "For reference, Ganin and Lempitsky (2015) report 57.5% source-only accuracy and 98.9% target-only accuracy on "
               "MNIST to MNIST-M, with their own MNIST-M generation, network and training set sizes. The source-only accuracy "
-              "here is lower, while the target-only accuracy is close. The source-only difference may come from the smaller "
+              "here is lower, and the target-only accuracy is a few points lower. The differences may come from the smaller "
               "network, the 10,000-image subsample or the copy of MNIST-M used, but this was not isolated by an experiment, "
               "and the absolute numbers in this report should not be compared directly with published ones.")
 
