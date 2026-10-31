@@ -168,3 +168,85 @@ def train_dann(xs, ys, xt, epochs, seed, log, tag="dann"):
 def features(model, x):
     model.eval()
     return torch.cat([model.feat(xb) for xb, _ in batches(x, torch.zeros(len(x)), 512, False)]).numpy()
+
+
+def run_all(data, seeds=(0, 1, 2), epochs=20, log=print):
+    # Every method shares the Net backbone and the same epoch budget
+    import time
+    xs, ys = data["mnist_train"]
+    xm, ym = data["mnistm_train"]
+    tests = {"mnist": data["mnist_test"], "mnistm": data["mnistm_test"]}
+    names = ["source_only", "adabn", "dann", "target_only"]
+    per = {n: {"mnist": [], "mnistm": []} for n in names}
+    secs = {n: 0.0 for n in names}
+    keep = {}
+    for s in seeds:
+        t = time.time(); src = train_supervised(xs, ys, epochs, s, log, "source_only"); secs["source_only"] += time.time() - t
+        t = time.time(); ada = adabn(src, xm); secs["adabn"] += time.time() - t
+        t = time.time(); dn = train_dann(xs, ys, xm, epochs, s, log); secs["dann"] += time.time() - t
+        t = time.time(); tgt = train_supervised(xm, ym, epochs, s, log, "target_only"); secs["target_only"] += time.time() - t
+        for n, m in zip(names, (src, ada, dn, tgt)):
+            for d, (x, y) in tests.items():
+                per[n][d].append(accuracy(m, x, y))
+            log(f"seed {s} {n}: MNIST {per[n]['mnist'][-1]:.2f}  MNIST-M {per[n]['mnistm'][-1]:.2f}")
+        if s == seeds[0]:
+            keep = {"source_only": src, "dann": dn}
+    gap = {n: [100 * (per[n]["mnistm"][i] - per["source_only"]["mnistm"][i]) /
+               (per["target_only"]["mnistm"][i] - per["source_only"]["mnistm"][i]) for i in range(len(seeds))] for n in names}
+    summ = {}
+    for n in names:
+        summ[n] = {"mnist_mean": float(np.mean(per[n]["mnist"])), "mnist_std": float(np.std(per[n]["mnist"])),
+                   "mnistm_mean": float(np.mean(per[n]["mnistm"])), "mnistm_std": float(np.std(per[n]["mnistm"])),
+                   "gap_mean": float(np.mean(gap[n])), "gap_std": float(np.std(gap[n])),
+                   "train_seconds_per_run": secs[n] / len(seeds)}
+    res = {"config": {"epochs": epochs, "seeds": list(seeds), "n_train_per_domain": len(xs), "batch_size": 128, "optimizer": "Adam lr 1e-3",
+                      "n_test_mnist": len(tests["mnist"][0]), "n_test_mnistm": len(tests["mnistm"][0])},
+           "per_seed": per, "gap_closed_per_seed": gap, "summary": summ}
+    return res, keep
+
+
+def bar_chart(summ, path):
+    labels = {"source_only": "Source-only", "adabn": "AdaBN", "dann": "DANN", "target_only": "Target-only"}
+    x = np.arange(len(labels))
+    fig, ax = plt.subplots(figsize=(7, 4))
+    for off, d, name in ((-0.2, "mnist", "MNIST (source test)"), (0.2, "mnistm", "MNIST-M (target test)")):
+        v = [summ[k][d + "_mean"] for k in labels]
+        e = [summ[k][d + "_std"] for k in labels]
+        b = ax.bar(x + off, v, 0.4, yerr=e, capsize=3, label=name)
+        for xi, vi in zip(x + off, v):
+            ax.text(xi, vi + 2, f"{vi:.1f}", ha="center", fontsize=8)
+    ax.set_xticks(x, labels.values())
+    ax.set_ylabel("Accuracy (%)")
+    ax.set_ylim(0, 110)
+    ax.legend(loc="lower right")
+    plt.tight_layout()
+    plt.savefig(path, dpi=150)
+    plt.show()
+
+
+def tsne_plot(models, data, path, n=1000):
+    from sklearn.manifold import TSNE
+    xs = data["mnist_test"][0][:n]
+    xt = data["mnistm_test"][0][:n]
+    fig, ax = plt.subplots(1, len(models), figsize=(5.5 * len(models), 5))
+    for a, (title, m) in zip(ax, models.items()):
+        f = np.concatenate([features(m, xs), features(m, xt)])
+        z = TSNE(2, perplexity=30, random_state=0).fit_transform(f)
+        a.scatter(*z[:n].T, s=6, c="tab:blue", label="MNIST (source)", alpha=0.6)
+        a.scatter(*z[n:].T, s=6, c="tab:red", label="MNIST-M (target)", alpha=0.6)
+        a.set_title(title)
+        a.set_xticks([])
+        a.set_yticks([])
+        a.legend(loc="upper right", markerscale=2)
+    plt.tight_layout()
+    plt.savefig(path, dpi=150)
+    plt.show()
+
+
+def log_image(lines, path, title):
+    fig = plt.figure(figsize=(9, 0.22 * len(lines) + 0.8), facecolor="#1e1e1e")
+    fig.text(0.02, 1 - 0.3 / fig.get_figheight(), title, color="#9cdcfe", family="monospace", fontsize=9, va="top")
+    for i, l in enumerate(lines):
+        fig.text(0.02, 1 - (0.75 + 0.22 * i) / fig.get_figheight(), l, color="#d4d4d4", family="monospace", fontsize=8, va="top")
+    plt.savefig(path, dpi=150, facecolor=fig.get_facecolor())
+    plt.close(fig)
