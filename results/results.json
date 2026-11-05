@@ -92,7 +92,7 @@
       "mnistm_std": 2.563555729552228,
       "gap_mean": 0.0,
       "gap_std": 0.0,
-      "train_seconds_per_run": 101.38388220469157
+      "train_seconds_per_run": 93.61105680465698
     },
     "adabn": {
       "mnist_mean": 98.75,
@@ -101,7 +101,7 @@
       "mnistm_std": 2.7658957233481876,
       "gap_mean": 37.624260998853096,
       "gap_std": 1.6004245348487027,
-      "train_seconds_per_run": 1.0561516284942627
+      "train_seconds_per_run": 0.9815769195556641
     },
     "dann": {
       "mnist_mean": 98.69000000000001,
@@ -110,7 +110,7 @@
       "mnistm_std": 5.465768274346059,
       "gap_mean": 26.71507166141737,
       "gap_std": 5.718566856208141,
-      "train_seconds_per_run": 203.48044093449911
+      "train_seconds_per_run": 183.58103815714517
     },
     "target_only": {
       "mnist_mean": 94.00666666666666,
@@ -119,7 +119,7 @@
       "mnistm_std": 0.10461390876440507,
       "gap_mean": 100.0,
       "gap_std": 0.0,
-      "train_seconds_per_run": 112.93386244773865
+      "train_seconds_per_run": 101.79381799697876
     }
   },
   "logs": [
