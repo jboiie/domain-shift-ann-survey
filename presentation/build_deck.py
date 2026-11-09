@@ -1,320 +1,337 @@
-"""Builds Domain_Shift_Presentation.pptx from results/results.json and figures/."""
+"""Builds the case study review deck on the course template.
+
+Usage: python presentation/build_deck.py "<path to case study review template.pptx>"
+Numbers are read from results/results.json; figures come from figures/.
+"""
+import io
 import json
+import sys
 from pathlib import Path
 
 from pptx import Presentation
+from pptx.opc.packuri import PackURI
 from pptx.dml.color import RGBColor
-from pptx.enum.shapes import MSO_SHAPE
-from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.util import Inches, Pt
 
 ROOT = Path(__file__).resolve().parents[1]
+TEMPLATE = sys.argv[1] if len(sys.argv) > 1 else str(Path.home() / "Desktop/CLG/ANN/case study review template.pptx")
+OUT = ROOT / "presentation" / "Domain_Shift_Case_Study_Review.pptx"
 R = json.load(open(ROOT / "results" / "results.json"))
-S, P, G = R["summary"], R["per_seed"], R["gap_closed_per_seed"]
+S = R["summary"]
+FONT = "Times New Roman"
 
-NAVY = RGBColor(0x1B, 0x2F, 0x4E)
-ACCENT = RGBColor(0xB5, 0x4A, 0x2A)
-INK = RGBColor(0x22, 0x26, 0x2E)
-MUTED = RGBColor(0x5F, 0x68, 0x75)
-LIGHT = RGBColor(0xEE, 0xF1, 0xF5)
-WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-FONT = "Calibri"
+prs = Presentation(TEMPLATE)
+LOGO = next(sh for sh in prs.slides[2].shapes if sh.shape_type == 13).image.blob
+logo_xy = (8.17, 0.42, 2.44, 0.9)
+thanks = prs.slides[len(prs.slides) - 1]
+thanks.part.partname = PackURI("/ppt/slides/slide99.xml")  # free slide12 for the new slides
 
-prs = Presentation()
-prs.slide_width, prs.slide_height = Inches(13.333), Inches(7.5)
-BLANK = prs.slide_layouts[6]
-state = {"n": 0}
+# keep the template title slide and the Thank You slide, drop the sample content slides
+ids = prs.slides._sldIdLst
+for sld in list(ids)[1:-1]:
+    prs.part.drop_rel(sld.rId)
+    ids.remove(sld)
 
 
-def text(slide, x, y, w, h, runs, size=18, color=INK, bold=False, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP, space=6):
-    """runs: str or list of paragraphs; a paragraph is a str or a list of (text, bold) tuples."""
+def run(p, t, size, bold=False, italic=False):
+    r = p.add_run()
+    r.text = t
+    r.font.size, r.font.bold, r.font.italic, r.font.name = Pt(size), bold, italic, FONT
+    r.font.color.rgb = RGBColor(0, 0, 0)
+    return r
+
+
+def textbox(slide, x, y, w, h, paras, size=15, spacing=1.3, justify=True, after=4):
+    """paras: list of str or list of (text, bold) segments."""
     tb = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
     tf = tb.text_frame
     tf.word_wrap = True
-    tf.vertical_anchor = anchor
-    tf.margin_left = tf.margin_right = Inches(0.05)
-    paras = [runs] if isinstance(runs, str) else runs
+    tf.margin_left = tf.margin_right = 0
     for i, para in enumerate(paras):
         p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-        p.alignment = align
-        p.space_after = Pt(space)
-        for t, b in ([(para, bold)] if isinstance(para, str) else para):
-            r = p.add_run()
-            r.text = t
-            r.font.size, r.font.bold, r.font.name = Pt(size), b, FONT
-            r.font.color.rgb = color
+        p.alignment = PP_ALIGN.JUSTIFY if justify else PP_ALIGN.LEFT
+        p.line_spacing = spacing
+        p.space_after = Pt(after)
+        for t, b in ([(para, False)] if isinstance(para, str) else para):
+            run(p, t, size, b)
     return tb
 
 
-def bullets(slide, x, y, w, h, items, size=18):
-    tb = text(slide, x, y, w, h, [[("•  ", False)] + ([(i, False)] if isinstance(i, str) else i) for i in items], size=size, space=10)
-    return tb
-
-
-def rect(slide, x, y, w, h, fill, line=None):
-    s = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(x), Inches(y), Inches(w), Inches(h))
-    s.fill.solid()
-    s.fill.fore_color.rgb = fill
-    if line is None:
-        s.line.fill.background()
-    else:
-        s.line.color.rgb = line
-    s.shadow.inherit = False
+def new_slide(title):
+    s = prs.slides.add_slide(prs.slide_layouts[1])
+    for ph in list(s.placeholders):
+        if ph.placeholder_format.idx != 0:
+            ph._element.getparent().remove(ph._element)
+    t = s.shapes.title
+    t.left, t.top, t.width, t.height = Inches(0.9), Inches(1.25), Inches(9.2), Inches(0.7)
+    t.text_frame.text = title
+    p = t.text_frame.paragraphs[0]
+    p.alignment = PP_ALIGN.CENTER
+    for r in p.runs:
+        r.font.size, r.font.name = Pt(26), FONT
+    s.shapes.add_picture(io.BytesIO(LOGO), *[Inches(v) for v in logo_xy])
     return s
 
 
-def new_slide(title, subtitle=None):
-    s = prs.slides.add_slide(BLANK)
-    state["n"] += 1
-    text(s, 0.6, 0.35, 12.1, 0.8, title, size=30, color=NAVY, bold=True, anchor=MSO_ANCHOR.MIDDLE)
-    rect(s, 0.65, 1.15, 1.0, 0.05, ACCENT)
-    if subtitle:
-        text(s, 0.6, 1.3, 12.1, 0.5, subtitle, size=16, color=MUTED)
-    rect(s, 0, 7.05, 13.333, 0.02, LIGHT)
-    text(s, 0.6, 7.07, 9, 0.35, "21CSE326T Artificial Neural Networks  |  SRM Institute of Science and Technology, Kattankulathur", size=11, color=MUTED)
-    text(s, 11.9, 7.07, 0.85, 0.35, str(state["n"] + 0), size=11, color=MUTED, align=PP_ALIGN.RIGHT)
-    return s
+def bullets(slide, y, items, size=15, h=None, x=0.7, w=9.6, spacing=1.3):
+    return textbox(slide, x, y, w, h or 4, ["• " + i if isinstance(i, str) else [("• ", False)] + i for i in items], size, spacing)
 
 
-def picture(slide, path, x, y, w=None, h=None):
-    kw = {}
-    if w:
-        kw["width"] = Inches(w)
-    if h:
-        kw["height"] = Inches(h)
-    return slide.shapes.add_picture(str(ROOT / path), Inches(x), Inches(y), **kw)
+def numbered(slide, y, items, size=15):
+    return textbox(slide, 0.7, y, 9.6, 5.5, [[(f"{i}. ", False), (h + " ", True), (b, False)] for i, (h, b) in enumerate(items, 1)], size, 1.25, after=8)
 
 
-def table(slide, x, y, w, rows, col_w, size=14, row_h=0.45, first_bold=True, hl_rows=()):
-    nr, nc = len(rows), len(rows[0])
-    gt = slide.shapes.add_table(nr, nc, Inches(x), Inches(y), Inches(w), Inches(row_h * nr))
+def picture(slide, name, x, y, w):
+    return slide.shapes.add_picture(str(ROOT / "figures" / name), Inches(x), Inches(y), width=Inches(w))
+
+
+def table(slide, x, y, widths, rows, size=11, row_h=0.4, bold_first_col=False):
+    gt = slide.shapes.add_table(len(rows), len(widths), Inches(x), Inches(y), Inches(sum(widths)), Inches(row_h * len(rows)))
     t = gt.table
-    tblPr = gt._element.graphic.graphicData.tbl.tblPr
-    tblPr.set("bandRow", "0")
-    tblPr.set("firstRow", "0")
-    for j, cw in enumerate(col_w):
-        t.columns[j].width = Inches(cw)
+    for j, w in enumerate(widths):
+        t.columns[j].width = Inches(w)
     for i, row in enumerate(rows):
         t.rows[i].height = Inches(row_h)
         for j, val in enumerate(row):
             c = t.cell(i, j)
-            c.vertical_anchor = MSO_ANCHOR.MIDDLE
-            c.margin_left = c.margin_right = Inches(0.1)
             c.fill.solid()
-            c.fill.fore_color.rgb = NAVY if i == 0 else (LIGHT if i in hl_rows else WHITE)
-            tf = c.text_frame
-            tf.word_wrap = True
-            p = tf.paragraphs[0]
-            p.alignment = PP_ALIGN.LEFT if j == 0 or nc <= 2 or i == 0 and j == 0 else PP_ALIGN.LEFT
-            r = p.add_run()
-            r.text = val
-            r.font.size, r.font.name = Pt(size), FONT
-            r.font.bold = i == 0 or (j == 0 and first_bold)
-            r.font.color.rgb = WHITE if i == 0 else INK
+            c.fill.fore_color.rgb = RGBColor(0xD9, 0xD9, 0xD9) if i == 0 else RGBColor(0xF2, 0xF2, 0xF2)
+            c.margin_left = c.margin_right = Inches(0.06)
+            c.margin_top = c.margin_bottom = Inches(0.03)
+            c.vertical_anchor = MSO_ANCHOR.MIDDLE
+            p = c.text_frame.paragraphs[0]
+            c.text_frame.word_wrap = True
+            run(p, val, size, bold=(i == 0 or (bold_first_col and j == 0)))
     return t
 
 
-def pm(a, b, nd=2):
-    return f"{a:.{nd}f} ± {b:.{nd}f}"
+def pm(a, b):
+    return f"{a:.2f} ± {b:.2f}"
 
 
-# 1. Title
-s = prs.slides.add_slide(BLANK)
-state["n"] += 1
-rect(s, 0, 0, 13.333, 7.5, NAVY)
-rect(s, 0.8, 0.7, 3.6, 1.25, WHITE)
-picture(s, "report/assets/srm_logo.jpeg", 0.95, 0.85, w=3.3)
-text(s, 0.8, 2.35, 11.7, 1.9, "Domain Shift in Artificial Neural Networks: A Survey of Domain Adaptation Techniques", size=38, color=WHITE, bold=True)
-rect(s, 0.85, 4.3, 1.2, 0.06, ACCENT)
-text(s, 0.8, 4.5, 11.7, 0.5, "Case study for 21CSE326T Artificial Neural Networks", size=20, color=WHITE)
-text(s, 0.8, 5.05, 6.2, 1.6, [[("Jai", False)], [("Aggam Singh Arora", False)], [("Areeb Akhtar", False)], [("Ujwal M", False)]], size=17, color=WHITE, space=2)
-text(s, 7.2, 5.05, 5.4, 1.6, [[("Guide: ", True), ("Dr. Kothai G", False)], "Department of Computational Intelligence", "SRM Institute of Science and Technology, Kattankulathur", "November 2026"], size=16, color=WHITE, space=3)
+# 1. Title (template slide, edited in place)
+s1 = prs.slides[0]
+for sh in s1.shapes:
+    if sh.name == "object 3":
+        sh.text_frame.text = "Domain Shift in Artificial Neural Networks: A Survey of Domain Adaptation Techniques"
+        p = sh.text_frame.paragraphs[0]
+        p.alignment = PP_ALIGN.CENTER
+        for r in p.runs:
+            r.font.size, r.font.bold = Pt(26), True
+    elif sh.name == "object 5":
+        sh.left, sh.top, sh.width = Inches(0.5), Inches(5.6), Inches(3.8)
+        tf = sh.text_frame
+        tf.clear()
+        tf.paragraphs[0].line_spacing = 1.2
+        run(tf.paragraphs[0], "Guide Name:", 14, bold=True)
+        for t in ("Dr. Kothai G", "Department of Computational Intelligence"):
+            p = tf.add_paragraph()
+            p.line_spacing = 1.2
+            run(p, t, 14)
+    elif sh.name == "object 6":
+        sh.left, sh.top, sh.width = Inches(4.9), Inches(5.6), Inches(5.6)
+        tf = sh.text_frame
+        tf.clear()
+        tf.paragraphs[0].line_spacing = 1.2
+        run(tf.paragraphs[0], "Student Name & Registration Number", 14, bold=True)
+        for n, r in (("Jai", "RA2411026010131"), ("Aggam Singh Arora", "RA2411026010139"),
+                     ("Areeb Akhtar", "RA2411026010154"), ("Ujwal M", "RA2411026010157")):
+            p = tf.add_paragraph()
+            p.line_spacing = 1.2
+            run(p, f"{n} - {r}", 14)
+textbox(s1, 0.9, 4.15, 9.2, 0.9, ["Case Study Review: 21CSE326T Artificial Neural Networks",
+                                  "SRM Institute of Science and Technology, Kattankulathur"], size=14, justify=False).text_frame.paragraphs
+for p in s1.shapes[-1].text_frame.paragraphs:
+    p.alignment = PP_ALIGN.CENTER
 
-# 2. Motivation
-s = new_slide("Motivation: a model that works in one hospital fails in another")
-bullets(s, 0.6, 1.6, 7.2, 4.5, [
-    "Zech et al. (2018) trained CNNs to detect pneumonia in chest radiographs.",
-    "Tested at outside hospitals, the models did worse than at their training hospital in 3 of 5 comparisons.",
-    "The same models could identify the hospital system from the image alone.",
-    "The model had learned cues unrelated to pneumonia, such as scanner and hospital artifacts.",
-], size=20)
-for k, (big, small) in enumerate([("3 of 5", "comparisons with lower accuracy at outside hospitals"),
-                                  ("99.95%", "hospital-system detection, NIH"),
-                                  ("99.98%", "hospital-system detection, Mount Sinai")]):
-    y = 1.65 + k * 1.75
-    rect(s, 8.5, y, 4.2, 1.5, LIGHT)
-    rect(s, 8.5, y, 0.08, 1.5, ACCENT)
-    text(s, 8.75, y + 0.1, 3.9, 0.75, big, size=36, color=NAVY, bold=True)
-    text(s, 8.75, y + 0.82, 3.9, 0.65, small, size=14, color=MUTED)
-text(s, 0.6, 6.45, 12, 0.4, "Zech et al., PLOS Medicine 15(11): e1002683, 2018.", size=12, color=MUTED)
+# 2. Introduction
+s = new_slide("Introduction")
+bullets(s, 2.15, [
+    "Neural networks assume that training and deployment data come from the same distribution. Under domain shift this fails, and held-out accuracy gives no warning.",
+    "Zech et al. (2018): pneumonia CNNs did worse at outside hospitals in 3 of 5 comparisons and identified the hospital system with 99.95% (NIH) and 99.98% (Mount Sinai) accuracy.",
+    "Domain adaptation uses unlabeled target data to reduce the gap. The figure shows the families of methods surveyed.",
+], size=15)
+picture(s, "taxonomy.png", 1.5, 4.7, 8.0)
 
-# 3. Domain shift
-s = new_slide("What is domain shift")
-text(s, 0.6, 1.6, 12.1, 1.0, "A model is trained on data from a source distribution and used on data from a different target distribution, for the same task. Held-out accuracy on the source then says little about accuracy in deployment.", size=19)
-table(s, 0.6, 3.05, 12.1, [
-    ["Type", "What changes", "Example"],
-    ["Covariate shift", "Input distribution P(x); P(y | x) is unchanged", "Different scanner, camera, lighting or background"],
-    ["Label shift", "Class proportions P(y); P(x | y) is unchanged", "A disease is more common at one hospital"],
-    ["Concept shift", "The relation P(y | x) itself", "Label meaning drifts over time or between annotators"],
-], [2.6, 5.0, 4.5], size=16, row_h=0.7)
-text(s, 0.6, 6.1, 12.1, 0.6, "This work focuses on covariate shift in image classification, where the target domain has no labels (unsupervised domain adaptation).", size=16, color=MUTED)
+# 3. Abstract
+s = new_slide("Abstract")
+bullets(s, 2.15, [
+    "This work surveys domain shift in neural networks and the main families of domain adaptation methods: fine-tuning, discrepancy-based (DAN, Deep CORAL), adversarial (DANN, ADDA), normalization-based (AdaBN, TENT), pixel-level (CyCADA) and domain generalization.",
+    "A controlled experiment trains one small CNN on MNIST and tests it on MNIST-M, comparing source-only, target-only, AdaBN and DANN with the same network, data and training recipe.",
+    f"Over three seeds, MNIST-M accuracy is {S['source_only']['mnistm_mean']:.2f}% for source-only, {S['adabn']['mnistm_mean']:.2f}% for AdaBN, {S['dann']['mnistm_mean']:.2f}% for DANN and {S['target_only']['mnistm_mean']:.2f}% for target-only.",
+    "AdaBN closed more of the gap than DANN in every seed. DANN's domain loss reached ln 2, yet t-SNE still shows the two domains apart.",
+    "The benchmark is a toy one, so the conclusions are limited accordingly.",
+], size=17, spacing=1.4)
 
-# 4. Why accuracy drops
-s = new_slide("Why accuracy drops: the Ben-David bound")
-rect(s, 0.6, 1.7, 12.1, 1.3, LIGHT)
-text(s, 0.6, 1.7, 12.1, 1.3, "ε_T(h)  ≤  ε_S(h)  +  ½ d_HΔH(S, T)  +  λ", size=34, color=NAVY, bold=True, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
-for k, (h, b) in enumerate([("ε_T(h)", "Target error: what we care about and cannot measure without target labels."),
-                            ("ε_S(h)", "Source error: low, because we train on it."),
-                            ("d_HΔH(S, T)", "Divergence between the two domains as seen by the hypothesis class. Domain adaptation tries to shrink this term."),
-                            ("λ", "Error of the best single hypothesis on both domains. If it is large, no method can adapt.")]):
-    y = 3.35 + k * 0.85
-    text(s, 0.7, y, 2.6, 0.7, h, size=20, color=ACCENT, bold=True)
-    text(s, 3.4, y, 9.3, 0.8, b, size=18)
-text(s, 0.6, 6.6, 12, 0.4, "Ben-David et al., Machine Learning 79(1-2): 151-175, 2010.", size=12, color=MUTED)
+# 4. Problem statement
+s = new_slide("Problem Statement")
+bullets(s, 2.15, [
+    "A model trained on a source domain loses accuracy on a target domain, and target labels are usually not available.",
+    f"Source accuracy hides the loss: the same network scores {S['source_only']['mnist_mean']:.2f}% on MNIST and {S['source_only']['mnistm_mean']:.2f}% on MNIST-M.",
+    "Question: using only unlabeled target images, how much of the lost accuracy can AdaBN and DANN recover under an identical network, data and training recipe?",
+    "Published comparisons use different networks, data sizes and recipes, which makes the answer hard to read from the literature.",
+], size=18, spacing=1.5)
 
-# 5. Taxonomy
-s = new_slide("Taxonomy of approaches")
-picture(s, "figures/taxonomy.png", 1.7, 1.5, h=5.35)
+# 5-7. Literature survey
+HEAD = ["S.No.", "Title / Author / Publication", "Methodology", "Research Gap / Limitation", "Result / Contribution"]
+LIT = [
+    ["Variable generalization performance of a deep learning model to detect pneumonia in chest radiographs. Zech et al., PLOS Medicine, 2018",
+     "CNNs trained on chest X-rays from hospital systems, tested internally and at outside hospitals",
+     "Studies the failure only; proposes no adaptation method",
+     "Lower accuracy at outside hospitals in 3 of 5 comparisons; hospital system identified at 99.95% (NIH) and 99.98% (Mount Sinai)"],
+    ["A theory of learning from different domains. Ben-David et al., Machine Learning, 2010",
+     "Theoretical analysis of target error under domain shift",
+     "A guarantee, not a training method; the divergence term is hard to compute exactly",
+     "Target error is bounded by source error plus domain divergence plus the error of the best joint hypothesis"],
+    ["Deep visual domain adaptation: A survey. Wang and Deng, Neurocomputing, 2018",
+     "Survey of deep domain adaptation for visual recognition",
+     "No controlled comparison of the methods",
+     "Organizes deep adaptation methods by training loss and data setting"],
+    ["Domain generalization: A survey. Zhou et al., IEEE TPAMI, 2023",
+     "Survey of methods that use no target data at training time",
+     "Survey only; no new experiments",
+     "Taxonomy of domain generalization methods and open problems"],
+    ["Learning transferable features with deep adaptation networks (DAN). Long et al., ICML, 2015",
+     "Multi-kernel MMD penalty on task-specific layers",
+     "Needs a kernel choice and unlabeled target data at training time",
+     "Higher target accuracy than baselines on standard image benchmarks"],
+    ["Deep CORAL: Correlation alignment for deep domain adaptation. Sun and Saenko, ECCV Workshops, 2016",
+     "Differentiable loss that aligns feature covariances of source and target",
+     "Aligns second-order statistics only",
+     "Simple loss that adds no parameters; competitive on Office-31"],
+    ["Unsupervised domain adaptation by backpropagation (DANN). Ganin and Lempitsky, ICML, 2015",
+     "Domain classifier trained jointly with the features through a gradient reversal layer",
+     "Adversarial training can be unstable; needs unlabeled target data",
+     "MNIST to MNIST-M: 57.5% source-only to 81.5% with DANN (their setup)"],
+    ["Domain-adversarial training of neural networks. Ganin et al., JMLR, 2016",
+     "Full DANN formulation with theory and the lambda schedule",
+     "Aligns marginal feature distributions only",
+     "Evaluated on image classification and person re-identification"],
+    ["Adversarial discriminative domain adaptation (ADDA). Tzeng et al., CVPR, 2017",
+     "Untied target encoder trained against a domain discriminator",
+     "Multi-stage adversarial training",
+     "Competitive results on digit and Office adaptation tasks"],
+    ["Revisiting batch normalization for practical domain adaptation (AdaBN). Li et al., arXiv, 2016",
+     "Replace batch-norm statistics with target statistics; no training",
+     "Only for networks with batch norm; adapts means and variances only",
+     "Gains with no extra training; can be combined with other methods"],
+    ["CyCADA: Cycle-consistent adversarial domain adaptation. Hoffman et al., ICML, 2018",
+     "Pixel-level translation and feature-level adaptation with cycle consistency",
+     "Heavy: needs generative adversarial training",
+     "Adaptation on digit benchmarks and synthetic-to-real segmentation (GTA5 to Cityscapes)"],
+    ["Tent: Fully test-time adaptation by entropy minimization. Wang et al., ICLR, 2021",
+     "Minimize prediction entropy on test batches, updating batch-norm scale and shift",
+     "Needs test batches and relies on confident predictions",
+     "Lower error under corruption and shift without source data or labels"],
+]
+for k in range(3):
+    s = new_slide("Literature Survey" + (" (Contd.)" if k else ""))
+    rows = [HEAD] + [[str(k * 4 + i + 1)] + r for i, r in enumerate(LIT[k * 4:(k + 1) * 4])]
+    table(s, 0.6, 2.2, [0.5, 2.5, 2.2, 2.1, 2.1], rows, size=10.5, row_h=1.2)
 
-# 6. Methods compared
-s = new_slide("Methods surveyed")
-table(s, 0.6, 1.55, 12.1, [
-    ["Method", "Core idea", "Target data at training"],
-    ["Fine-tuning", "Continue training on labeled target data", "Labeled"],
-    ["DAN (2015)", "Penalize multi-kernel MMD between domains on task-specific layers", "Unlabeled"],
-    ["Deep CORAL (2016)", "Align second-order statistics (covariances) of the features", "Unlabeled"],
-    ["DANN (2015)", "Domain classifier with a gradient reversal layer; features become domain-invariant", "Unlabeled"],
-    ["ADDA (2017)", "Untied target encoder trained against a domain discriminator", "Unlabeled"],
-    ["AdaBN (2016)", "Replace batch-norm statistics with statistics of the target data", "Unlabeled, no training"],
-    ["CyCADA (2018)", "Pixel-level and feature-level adaptation with cycle consistency", "Unlabeled"],
-    ["TENT (2021)", "Minimize prediction entropy on test batches, updating BN parameters", "Unlabeled, at test time"],
-], [2.6, 6.7, 2.8], size=14, row_h=0.56)
-
-# 7. Experiment design
-s = new_slide("Experiment: MNIST to MNIST-M")
-text(s, 0.6, 1.6, 12.1, 0.6, "Question: how much of the accuracy lost to domain shift can a cheap method (AdaBN) and an adversarial method (DANN) recover, with no target labels?", size=19)
-table(s, 0.6, 2.7, 12.1, [
-    ["Method", "Role", "Uses target images", "Uses target labels"],
-    ["Source-only", "Lower reference: ignore the shift", "No", "No"],
-    ["AdaBN", "Re-estimate BN statistics on target images", "Yes", "No"],
-    ["DANN", "Adversarial feature alignment", "Yes", "No"],
-    ["Target-only", "Upper bound", "Yes", "Yes"],
-], [2.6, 5.3, 2.2, 2.0], size=16, row_h=0.65)
-text(s, 0.6, 6.15, 12.1, 0.6, [[("Metric: ", True), ("gap closed = (method - source-only) / (target-only - source-only), on MNIST-M test accuracy, computed per seed.", False)]], size=16)
-
-# 8. Datasets
-s = new_slide("Datasets")
-picture(s, "figures/samples.png", 0.6, 1.55, w=12.1)
-table(s, 0.6, 4.65, 12.1, [
-    ["", "MNIST (source)", "MNIST-M (target)"],
-    ["Content", "Handwritten digits, grayscale, resized to 32x32 and copied to 3 channels", "MNIST digits blended with random photo patches, 32x32 RGB"],
-    ["Source", "torchvision download", "Hugging Face dataset Mike0307/MNIST-M"],
-    ["Training / test", "10,000 random training images / 10,000 test", "10,000 random training images / 9,001 test"],
-], [2.0, 5.2, 4.9], size=14, row_h=0.55)
-
-# 9. Architecture
-s = new_slide("Shared backbone and DANN components")
-picture(s, "figures/architecture.png", 0.9, 1.55, h=4.55)
-text(s, 0.6, 6.25, 12.1, 0.7, "Three Conv-BatchNorm-ReLU-MaxPool blocks (32, 64, 128 channels), a 128-d feature layer and a 10-way classifier. Every method uses this backbone; DANN adds the gradient reversal layer and a domain classifier.", size=15, color=MUTED)
-
-# 10. AdaBN and DANN
-s = new_slide("AdaBN and DANN")
-for x, head, items in [
-    (0.6, "AdaBN", [
-        "Take the source-only model and keep all weights fixed.",
-        "Recompute each BatchNorm layer's mean and variance on unlabeled target images.",
-        "Two sets of statistics: source for MNIST, target for MNIST-M, so MNIST accuracy is unchanged.",
-        "No training: about 1 second.",
-    ]),
-    (6.9, "DANN", [
-        "A domain classifier on the 128-d features separates source from target.",
-        "The gradient reversal layer is the identity going forward and multiplies the gradient by -λ going backward, so the feature extractor learns to confuse the domain classifier.",
-        "Label loss on source only; λ = 2 / (1 + exp(-10p)) - 1 rises from 0 to 1.",
-        "A concatenated source and target batch goes through the backbone, so BN statistics are mixed.",
-    ])]:
-    rect(s, x, 1.55, 5.8, 0.55, NAVY)
-    text(s, x + 0.15, 1.55, 5.5, 0.55, head, size=20, color=WHITE, bold=True, anchor=MSO_ANCHOR.MIDDLE)
-    bullets(s, x, 2.3, 5.8, 4.6, items, size=18)
-
-# 11. Training setup
-s = new_slide("Training setup")
-cfg = R["config"]
-table(s, 0.6, 1.6, 12.1, [
-    ["Item", "Value"],
-    ["Optimizer", "SGD, momentum 0.9"],
-    ["Learning rate", "0.01 / (1 + 10p)^0.75, p = training progress from 0 to 1 (Ganin and Lempitsky)"],
-    ["Batch size / epochs", f"{cfg['batch_size']} / {cfg['epochs']}, identical for every method"],
-    ["Training data", f"{cfg['n_train_per_domain']:,} images per domain"],
-    ["Seeds", "0, 1, 2 (all reported, none selected)"],
-    ["Hardware", "CPU only; about 7 minutes per seed for all four methods"],
-], [3.0, 9.1], size=16, row_h=0.62)
-text(s, 0.6, 6.1, 12.1, 0.7, "Before the final run, the preprocessing of both domains was audited (same format, range and normalization) and no problem was found. AdaBN is evaluated with source statistics on MNIST and target statistics on MNIST-M.", size=14, color=MUTED)
-
-# 12. Results table
-s = new_slide("Results", "Mean ± std over 3 seeds, test accuracy (%)")
-names = {"source_only": "Source-only", "adabn": "AdaBN", "dann": "DANN", "target_only": "Target-only"}
-rows = [["Method", "MNIST", "MNIST-M", "Gap closed"]]
-for k, v in S.items():
-    g = "-" if k == "source_only" else ("100 (by definition)" if k == "target_only" else pm(v["gap_mean"], v["gap_std"], 1) + " %")
-    rows.append([names[k], pm(v["mnist_mean"], v["mnist_std"]), pm(v["mnistm_mean"], v["mnistm_std"]), g])
-table(s, 0.6, 1.95, 12.1, rows, [2.8, 2.9, 3.0, 3.4], size=18, row_h=0.72, hl_rows=(2,))
-text(s, 0.6, 5.85, 12.1, 0.9, "A model at 98.75% on MNIST scores 19.62% on MNIST-M. AdaBN recovers 37.6% of the gap, DANN 26.7%.", size=18, color=NAVY, bold=True)
-
-# 13. Bar chart + per-seed
-s = new_slide("Accuracy by method and per-seed MNIST-M results")
-picture(s, "figures/results_bar.png", 0.5, 1.55, w=6.9)
-rows = [["MNIST-M (%)", "Seed 0", "Seed 1", "Seed 2"]]
-for k in names:
-    rows.append([names[k]] + [f"{x:.2f}" for x in P[k]["mnistm"]])
-table(s, 7.6, 1.7, 5.2, rows, [1.7, 1.17, 1.17, 1.16], size=14, row_h=0.5)
-rows = [["Gap closed (%)", "Seed 0", "Seed 1", "Seed 2"]]
-for k in ("adabn", "dann"):
-    rows.append([names[k]] + [f"{x:.1f}" for x in G[k]])
-table(s, 7.6, 4.5, 5.2, rows, [1.7, 1.17, 1.17, 1.16], size=14, row_h=0.5)
-text(s, 7.6, 6.15, 5.2, 0.7, "AdaBN is ahead of DANN in every seed.", size=15, color=NAVY, bold=True)
-
-# 14. t-SNE
-s = new_slide("Feature space: source-only vs DANN")
-picture(s, "figures/tsne.png", 1.25, 1.5, h=4.75)
-text(s, 0.6, 6.3, 12.1, 0.7, "t-SNE of 128-d features, seed 0. DANN's domain loss reached ln 2 (about 0.693), the value for a chance-level domain classifier, yet source and target features still sit in separate regions.", size=15, color=MUTED)
-
-# 15. Findings and limitations
-s = new_slide("Findings and limitations")
-for x, head, items in [
-    (0.6, "Findings", [
-        "The shift is large: 98.75% on MNIST falls to 19.62% on MNIST-M.",
-        "AdaBN closed more of the gap than DANN in every seed, with no training.",
-        "DANN improved on source-only in every seed but varies more across seeds (gap closed 20.7 to 34.4).",
-        "A domain loss at chance did not mean the domains were aligned.",
-        "Not directly comparable to Ganin and Lempitsky (57.5% source-only, 81.5% DANN): different network, data size and MNIST-M copy.",
-    ]),
-    (6.9, "Limitations", [
-        "Toy benchmark with a synthetic shift; may not transfer to real shifts such as hospitals.",
-        "Small CNN, 10,000 images per domain, 30 epochs, 3 seeds.",
-        "DANN was not tuned per method. Why it trails AdaBN here was not tested; mixed BN statistics and small data are candidates.",
-        "Only AdaBN and DANN were run. The other surveyed methods are described, not implemented.",
-    ])]:
-    rect(s, x, 1.55, 5.8, 0.55, NAVY)
-    text(s, x + 0.15, 1.55, 5.5, 0.55, head, size=20, color=WHITE, bold=True, anchor=MSO_ANCHOR.MIDDLE)
-    bullets(s, x, 2.3, 5.8, 4.6, items, size=17)
-
-# 16. Conclusion + references
-s = new_slide("Conclusion and references")
-bullets(s, 0.6, 1.55, 12.1, 2.1, [
-    "Domain shift is a deployment risk that held-out accuracy on the training distribution does not reveal.",
-    "In this setup, re-estimating batch-norm statistics (AdaBN) was the cheapest and most reliable adaptation method; DANN gave a smaller and less stable gain.",
-    "Code, results and report: github.com/jboiie/domain-shift-ann-survey",
+# 8. Research gaps
+s = new_slide("Research Gaps")
+numbered(s, 2.15, [
+    ("Inconsistent comparison:", "methods are reported with different networks, data sizes and training recipes, so their results cannot be compared directly."),
+    ("Cheap baselines:", "a normalization-only method such as AdaBN needs no training and is a useful reference next to adversarial methods."),
+    ("Domain loss as a signal:", "a domain classifier at chance is often read as aligned features, but invariant representations have limits (Zhao et al., 2019)."),
+    ("Real shifts:", "benchmark shifts are mostly synthetic or curated, while deployment shifts such as hospitals are harder to benchmark."),
+    ("Variance:", "single-run results hide seed variance, which is large for adversarial training."),
 ], size=17)
-text(s, 0.6, 3.85, 12.1, 0.4, "References", size=16, color=ACCENT, bold=True)
-text(s, 0.6, 4.25, 12.1, 2.7, [
-    "Zech et al. (2018). Variable generalization performance of a deep learning model to detect pneumonia in chest radiographs. PLOS Medicine 15(11): e1002683.",
-    "Ben-David et al. (2010). A theory of learning from different domains. Machine Learning 79(1-2): 151-175.",
-    "Ganin & Lempitsky (2015). Unsupervised domain adaptation by backpropagation. ICML, PMLR 37: 1180-1189.",
-    "Ganin et al. (2016). Domain-adversarial training of neural networks. JMLR 17(59): 1-35.",
-    "Li et al. (2016). Revisiting batch normalization for practical domain adaptation. arXiv:1603.04779.",
-    "Wang & Deng (2018). Deep visual domain adaptation: A survey. Neurocomputing 312: 135-153.",
-], size=13, color=MUTED, space=4)
 
-out = ROOT / "presentation" / "Domain_Shift_Presentation.pptx"
-prs.save(out)
-print("saved", out, len(prs.slides._sldIdLst), "slides")
+# 9. Objectives
+s = new_slide("Objectives")
+numbered(s, 2.15, [
+    ("", "To survey the types of domain shift and the main families of domain adaptation methods."),
+    ("", "To compare source-only, AdaBN, DANN and a target-only upper bound on MNIST to MNIST-M with one network and one training recipe."),
+    ("", "To report mean and standard deviation over seeds 0, 1 and 2, with every individual seed shown."),
+    ("", "To measure the share of the source-to-target accuracy gap that each method closes."),
+    ("", "To inspect the learned features with t-SNE and compare them with the DANN domain loss."),
+    ("", "To publish the code, results and report so the experiment can be reproduced."),
+], size=17)
+
+# 10. Methodology
+s = new_slide("Methodology")
+picture(s, "architecture.png", 1.2, 2.1, 8.6)
+bullets(s, 6.05, [
+    [("Source-only / target-only: ", True), ("train on MNIST or MNIST-M labels. Target-only is the upper bound.", False)],
+    [("AdaBN: ", True), ("replace batch-norm statistics with target statistics, no training. MNIST is scored with source statistics.", False)],
+    [("DANN: ", True), ("domain classifier behind a gradient reversal layer (identity forward, -lambda times gradient backward), lambda = 2 / (1 + exp(-10p)) - 1.", False)],
+], size=13, spacing=1.2)
+
+# 11. Experimental setup
+s = new_slide("Experimental Setup")
+picture(s, "samples.png", 0.7, 2.1, 9.6)
+cfg = R["config"]
+table(s, 0.7, 4.7, [2.2, 7.4], [
+    ["Item", "Value"],
+    ["Domains", "MNIST (source), MNIST-M from Hugging Face Mike0307/MNIST-M (target); 32x32, 3 channels"],
+    ["Data", f"{cfg['n_train_per_domain']:,} training images per domain; full test sets ({cfg['n_test_mnist']:,} and {cfg['n_test_mnistm']:,})"],
+    ["Backbone", "3 x Conv-BN-ReLU-MaxPool (32, 64, 128), Linear 2048 to 128, Linear 128 to 10"],
+    ["Optimizer", "SGD, momentum 0.9, lr = 0.01 / (1 + 10p)^0.75"],
+    ["Training", f"batch size {cfg['batch_size']}, {cfg['epochs']} epochs, seeds 0, 1, 2, CPU only"],
+], size=11, row_h=0.5, bold_first_col=True)
+
+# 12. Comparative analysis
+s = new_slide("Comparative Analysis of Models")
+names = {"source_only": "Source-only", "adabn": "AdaBN", "dann": "DANN", "target_only": "Target-only"}
+rows = [["Method", "MNIST acc. (%)", "MNIST-M acc. (%)", "Gap closed (%)"]]
+for k, v in S.items():
+    g = "-" if k == "source_only" else ("100 (by definition)" if k == "target_only" else f"{v['gap_mean']:.1f} ± {v['gap_std']:.1f}")
+    rows.append([names[k], pm(v["mnist_mean"], v["mnist_std"]), pm(v["mnistm_mean"], v["mnistm_std"]), g])
+table(s, 0.7, 2.15, [2.0, 2.4, 2.6, 2.6], rows, size=12, row_h=0.42, bold_first_col=True)
+textbox(s, 0.7, 4.35, 9.6, 0.3, ["Mean ± std over seeds 0, 1, 2. AdaBN is ahead of DANN in every seed."], size=12, justify=False)
+picture(s, "results_bar.png", 1.9, 4.8, 6.4)
+
+# 13. Feature space
+s = new_slide("Feature-Space Analysis")
+picture(s, "tsne.png", 0.7, 2.1, 9.6)
+bullets(s, 6.65, [
+    "DANN's domain loss reached ln 2 (about 0.693), the value for a chance-level domain classifier.",
+    "Source and target features still sit in separate regions, so a chance-level domain loss did not mean aligned features.",
+    "The plot shows seed 0 only; it is a visual check, not a measurement.",
+], size=13, spacing=1.2)
+
+# 14. Conclusion and limitations
+s = new_slide("Conclusion and Limitations")
+bullets(s, 2.15, [
+    "Domain shift is a deployment risk that held-out source accuracy does not reveal.",
+    f"AdaBN closed {S['adabn']['gap_mean']:.1f}% of the gap with no training. DANN closed {S['dann']['gap_mean']:.1f}% with larger variation across seeds. AdaBN was ahead in every seed.",
+    "Reporting a normalization-only baseline next to adversarial methods is cheap and informative.",
+], size=16, spacing=1.4)
+textbox(s, 0.7, 4.75, 9.6, 0.4, [[("Limitations", True)]], size=15, justify=False)
+bullets(s, 5.2, [
+    "Toy benchmark with a synthetic shift, a small CNN, 10,000 images per domain and 3 seeds.",
+    "Why DANN trails AdaBN here was not tested; mixed batch-norm statistics and small data are candidates.",
+    "Not directly comparable to Ganin and Lempitsky (57.5% source-only, 81.5% DANN): different network, data size and MNIST-M copy.",
+    "Only AdaBN and DANN were run; the other surveyed methods are described, not implemented.",
+], size=14, spacing=1.25)
+
+# 15. References
+s = new_slide("References")
+REFS = [
+    "J. R. Zech et al., “Variable generalization performance of a deep learning model to detect pneumonia in chest radiographs,” PLOS Medicine, vol. 15, no. 11, e1002683, 2018.",
+    "S. Ben-David et al., “A theory of learning from different domains,” Machine Learning, vol. 79, pp. 151-175, 2010.",
+    "Y. Ganin and V. Lempitsky, “Unsupervised domain adaptation by backpropagation,” ICML, PMLR 37, pp. 1180-1189, 2015.",
+    "Y. Ganin et al., “Domain-adversarial training of neural networks,” JMLR, vol. 17, no. 59, pp. 1-35, 2016.",
+    "Y. Li et al., “Revisiting batch normalization for practical domain adaptation,” arXiv:1603.04779, 2016.",
+    "M. Long et al., “Learning transferable features with deep adaptation networks,” ICML, PMLR 37, pp. 97-105, 2015.",
+    "B. Sun and K. Saenko, “Deep CORAL: Correlation alignment for deep domain adaptation,” ECCV Workshops, LNCS 9915, pp. 443-450, 2016.",
+    "E. Tzeng et al., “Adversarial discriminative domain adaptation,” CVPR, pp. 7167-7176, 2017.",
+    "J. Hoffman et al., “CyCADA: Cycle-consistent adversarial domain adaptation,” ICML, PMLR 80, pp. 1989-1998, 2018.",
+    "D. Wang et al., “Tent: Fully test-time adaptation by entropy minimization,” ICLR, 2021.",
+    "M. Wang and W. Deng, “Deep visual domain adaptation: A survey,” Neurocomputing, vol. 312, pp. 135-153, 2018.",
+    "K. Zhou et al., “Domain generalization: A survey,” IEEE TPAMI, vol. 45, no. 4, pp. 4396-4415, 2023.",
+    "H. Zhao et al., “On learning invariant representations for domain adaptation,” ICML, PMLR 97, pp. 7523-7532, 2019.",
+]
+textbox(s, 0.7, 2.1, 9.6, 6, [[(f"{i}. ", False), (r, False)] for i, r in enumerate(REFS, 1)], size=11, spacing=1.1, after=4)
+
+# Thank You slide goes last
+ids = prs.slides._sldIdLst
+ty = next(e for e in ids if prs.part.related_part(e.rId).slide is thanks)
+ids.remove(ty)
+ids.append(ty)
+
+prs.save(OUT)
+print("saved", OUT, len(prs.slides), "slides")
